@@ -31,4 +31,4 @@ Le projet suit une arborescence stricte imposée par les consignes:
 ## Installation et Lancement
 1. **Clonage** : 
    ```bash
-   git clone [https://github.com/Karimelm05/Chrono-Vault.git](https://github.com/Karimelm05/Chrono-Vault.git)
+   git clone https://github.com/Karimelm05/Chrono-Vault.git
