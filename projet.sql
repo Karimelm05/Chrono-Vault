@@ -1,0 +1,2 @@
+-- Export SQL de la base de donnees.
+-- Remplacez ce contenu par votre export complet (schema + donnees de test).
