@@ -1,3 +1,5 @@
+    </div>
+
     <footer class="page-footer">
         <p class="footer-copy mb-0">© 2026 ChronoVault, tous droits réservés.</p>
         <div class="footer-links">

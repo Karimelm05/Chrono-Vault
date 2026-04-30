@@ -18,60 +18,104 @@ require_once __DIR__ . '/../includes/layout.php';
 </header>
 
 <section class="cards-section">
-  <div class="row g-4">
-    <div class="col-12 col-lg-6">
+  <div class="row g-4 justify-content-center">
+    <!-- Profil -->
+    <div class="col-12 col-lg-8 mx-auto">
       <div class="capsule-card" style="height:auto; min-height: 260px;">
         <div class="card-body-cv">
           <h3 class="card-title-cv">Profil</h3>
-          <div class="mb-3">
-            <label class="form-label-cv" for="displayName">Nom affiché</label>
-            <input id="displayName" class="form-input-cv" type="text" value="Marc-Antoine"/>
-          </div>
-          <div class="mb-3">
-            <label class="form-label-cv" for="emailAddress">Adresse email</label>
-            <input id="emailAddress" class="form-input-cv" type="email" value="marc@example.com"/>
-          </div>
+          <form id="profileForm">
+
+            <div class="mb-3">
+              <label class="form-label-cv" for="displayName">Nom complet</label>
+              <input id="displayName" class="form-input-cv" type="text" value="ZeroVector" />
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label-cv" for="emailAddress">Adresse email</label>
+              <input id="emailAddress" class="form-input-cv" type="email" value="zerovector@example.com" />
+            </div>
+
+            <div class="d-flex justify-content-end">
+              <button type="button" id="saveProfile" class="btn-primary-cv">Enregistrer</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
 
-    <div class="col-12 col-lg-6">
-      <div class="capsule-card" style="height:auto; min-height: 260px;">
-        <div class="card-body-cv">
-          <h3 class="card-title-cv">Préférences</h3>
-          <div class="d-flex flex-column gap-3">
-            <label class="d-flex align-items-center justify-content-between gap-3">
-              <span>Recevoir les notifications par email</span>
-              <input type="checkbox" checked/>
-            </label>
-            <label class="d-flex align-items-center justify-content-between gap-3">
-              <span>Activer les rappels de capsules</span>
-              <input type="checkbox" checked/>
-            </label>
-            <label class="d-flex align-items-center justify-content-between gap-3">
-              <span>Mode de confidentialité renforcé</span>
-              <input type="checkbox"/>
-            </label>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <div class="col-12 col-lg-6">
+    <!-- Sécurité -->
+    <div class="col-12 col-lg-8 mx-auto">
       <div class="capsule-card" style="height:auto; min-height: 220px;">
         <div class="card-body-cv">
           <h3 class="card-title-cv">Sécurité</h3>
-          <p class="card-desc">Changez votre mot de passe ou déconnectez les autres sessions actives.</p>
-          <div class="d-flex flex-wrap gap-2">
-            <button class="btn-filter" type="button">Changer le mot de passe</button>
-            <button class="btn-filter" type="button">Déconnecter les sessions</button>
+          <p class="card-desc">Changez votre mot de passe. Les champs ci-dessous permettent de modifier votre accès.</p>
+          <div class="mb-2">
+            <label class="form-label-cv">Mot de passe actuel</label>
+            <div class="d-flex">
+              <input id="currentPassword" type="password" class="form-input-cv" />
+              <button type="button" class="btn-filter ms-2 toggle-password" data-target="currentPassword">Afficher</button>
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label-cv">Nouveau mot de passe</label>
+            <div class="d-flex">
+              <input id="newPassword" type="password" class="form-input-cv" />
+              <button type="button" class="btn-filter ms-2 toggle-password" data-target="newPassword">Afficher</button>
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label-cv">Confirmer le nouveau mot de passe</label>
+            <div class="d-flex">
+              <input id="confirmPassword" type="password" class="form-input-cv" />
+              <button type="button" class="btn-filter ms-2 toggle-password" data-target="confirmPassword">Afficher</button>
+            </div>
+          </div>
+          <div class="d-flex gap-2 mt-2">
+            <button id="changePassword" class="btn-filter">Changer le mot de passe</button>
+            <button id="logoutSessions" class="btn-filter">Déconnecter les sessions</button>
           </div>
         </div>
       </div>
     </div>
 
-    
+    <!-- Zone de danger -->
+    <div class="col-12 col-lg-8 mx-auto">
+      <div class="capsule-card border-danger" style="height:auto; min-height: 220px;">
+        <div class="card-body-cv">
+          <h3 class="card-title-cv text-danger">Zone de danger</h3>
+          <p class="card-desc">Suppression définitive du compte et de toutes les capsules associées. Cette action est irréversible.</p>
+          <div class="d-flex justify-content-end">
+            <button id="deleteAccount" class="btn btn-danger">Supprimer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </section>
+
+<script>
+// Avatar preview + validation (max 2 MB)
+const avatarFile = document.getElementById('avatarFile');
+if (avatarFile) {
+  avatarFile.addEventListener('change', function(){
+    const file = this.files[0];
+    if (!file) return;
+    const allowed = ['image/jpeg','image/png','image/gif'];
+    if (!allowed.includes(file.type)) { alert('Format non autorisé. Utilisez JPG, PNG ou GIF.'); this.value = ''; return; }
+    if (file.size > 2 * 1024 * 1024) { alert('Le fichier est trop volumineux (max 2 MB).'); this.value = ''; return; }
+    const img = document.getElementById('avatarPreview'); img.src = URL.createObjectURL(file);
+  });
+}
+
+// Toggle password visibility
+document.querySelectorAll('.toggle-password').forEach(function(btn){ btn.addEventListener('click', function(){ const targetId = this.getAttribute('data-target'); const input = document.getElementById(targetId); if (!input) return; if (input.type === 'password') { input.type = 'text'; this.textContent = 'Masquer'; } else { input.type = 'password'; this.textContent = 'Afficher'; } }); });
+
+// Delete account confirmation
+document.getElementById('deleteAccount')?.addEventListener('click', function(){ if (confirm('Confirmez-vous la suppression définitive de votre compte et de toutes les capsules associées ?')) { alert('Suppression simulée. Implémentez la logique côté serveur.'); } });
+
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

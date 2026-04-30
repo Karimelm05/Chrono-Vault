@@ -141,45 +141,12 @@ require_once __DIR__ . '/../includes/layout.php';
           </div>
         </div>
 
-        <div class="d-flex justify-content-between align-items-center gap-3" data-status="declined" data-search="sara martin capsule souvenir">
-          <div>
-            <strong>Sara Martin</strong>
-            <div class="card-desc mb-0" style="-webkit-line-clamp:1; line-clamp:1; margin-bottom:0;">Capsule souvenir · refusée</div>
-          </div>
-          <div class="d-flex flex-wrap justify-content-end gap-2 align-items-center">
-            <span class="badge-cv badge-draft">Refusée</span>
-            <button class="btn-filter" type="button" data-action="resend">Renvoyer</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="row g-4">
-    <div class="col-12 col-lg-6">
-      <div class="capsule-card" style="height:auto; min-height: 220px;">
-        <div class="card-body-cv">
-          <h3 class="card-title-cv">Résumé</h3>
-          <div class="d-flex flex-column gap-3">
-            <div class="d-flex justify-content-between align-items-center">
-              <span class="card-desc mb-0" style="-webkit-line-clamp:1; line-clamp:1; margin-bottom:0;">En attente</span>
-              <strong>3</strong>
-            </div>
-            <div class="d-flex justify-content-between align-items-center">
-              <span class="card-desc mb-0" style="-webkit-line-clamp:1; line-clamp:1; margin-bottom:0;">Acceptées</span>
-              <strong>5</strong>
-            </div>
-            <div class="d-flex justify-content-between align-items-center">
-              <span class="card-desc mb-0" style="-webkit-line-clamp:1; line-clamp:1; margin-bottom:0;">Refusées</span>
-              <strong>2</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     
+      </div>
+    </div>
   </div>
+
+  
 </section>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
 
