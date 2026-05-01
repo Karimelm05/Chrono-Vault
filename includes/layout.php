@@ -1,4 +1,15 @@
 <?php
+session_start();
+
+if (!isset($_SESSION['user'])) {
+    header("Location: login.php");
+    exit();
+}
+
+$userId = $_SESSION['user']['id'];
+$userNom = $_SESSION['user']['nom'];
+$userEmail = $_SESSION['user']['email'];
+
 $pageTitle = $pageTitle ?? 'ChronoVault';
 $activePage = $activePage ?? '';
 ?>
@@ -875,7 +886,7 @@ $activePage = $activePage ?? '';
         <span class="material-symbols-outlined">help</span>
         <span>Aide</span>
       </a>
-      <a href="../index.php" class="nav-link-item">
+      <a href="logout.php" class="nav-link-item">
         <span class="material-symbols-outlined">logout</span>
         <span>Déconnexion</span>
       </a>

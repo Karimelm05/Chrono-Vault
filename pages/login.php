@@ -6,16 +6,16 @@ $error = "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
-    $email = trim($_POST['email']);
+    $nom = trim($_POST['username']);
     $password = trim($_POST['password']);
 
-    if (!empty($email) && !empty($password)) {
+    if (!empty($nom) && !empty($password)) {
 
-        $sql = "SELECT * FROM utilisateur WHERE email = :email";
+        $sql = "SELECT * FROM utilisateur WHERE nom = :nom";
         $stmt = $pdo->prepare($sql);
 
         $stmt->execute([
-            ':email' => $email
+            ':nom' => $nom
         ]);
 
         $user = $stmt->fetch();
@@ -24,7 +24,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             $_SESSION['user'] = [
                 'id' => $user['id'],
-                'full_name' => $user['nom'],
+                'nom' => $user['nom'],
                 'email' => $user['email']
             ];
 
@@ -32,7 +32,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             exit();
 
         } else {
-            $error = "Email ou mot de passe invalide";
+            $error = "Nom utilisateur ou mot de passe invalide";
         }
 
     } else {
@@ -88,14 +88,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <form method="POST">
 
           <div class="mb-4 text-start">
-            <label class="form-label small text-muted">E-mail</label>
+            <label class="form-label small text-muted">Nom d'utilisateur</label>
 
             <input
-              type="email"
-              name="email"
-              class="form-control"
-              placeholder="votre@email.com"
-              required
+            type="text"
+            name="username"
+            class="form-control"
+            placeholder="votre nom d'utilisateur"
+            required
             />
           </div>
 

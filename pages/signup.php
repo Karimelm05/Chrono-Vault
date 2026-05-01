@@ -6,11 +6,11 @@ $success = "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
-    $full_name = trim($_POST['name']);
+    $nom = trim($_POST['username']);
     $email = trim($_POST['email']);
     $password = trim($_POST['password']);
 
-    if (!empty($full_name) && !empty($email) && !empty($password)) {
+    if (!empty($nom) && !empty($email) && !empty($password)) {
 
         $checkSql = "SELECT * FROM utilisateur WHERE email = :email";
         $checkStmt = $pdo->prepare($checkSql);
@@ -28,14 +28,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } else {
 
             $insertSql = "
-                INSERT INTO utilisateur(nom, email, mot_de_passe)
-                VALUES(:full_name, :email, :password)
+                INSERT INTO utilisateur(nom, email, mot_de_passe,role)
+                VALUES(:nom, :email, :password ,'user')
             ";
 
             $insertStmt = $pdo->prepare($insertSql);
 
             $insertStmt->execute([
-                ':full_name' => $full_name,
+                ':nom' => $nom,
                 ':email' => $email,
                 ':password' => $password
             ]);
@@ -96,8 +96,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         <form method="POST">
           <div class="mb-3 text-start">
-            <label class="form-label small text-muted">Nom</label>
-       <input type="text" name="name" class="form-control" placeholder="Votre nom complet" required />
+            <label class="form-label small text-muted">Nom d'utilisateur</label>
+       <input type="text" name="username" class="form-control" placeholder="Votre nom d'utilisateur" required />
           </div>
 
           <div class="mb-3 text-start">
