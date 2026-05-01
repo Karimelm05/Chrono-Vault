@@ -1,9 +1,86 @@
 ﻿<?php
+session_start();
 $pageTitle = 'Invitations | ChronoVault';
 $activePage = 'invitations';
-require_once __DIR__ . '/../includes/layout.php';
+require_once __DIR__ . '/../connexion.php';
+require_once __DIR__ . '/../includes/layout.php'; 
+
+function countInvitationsReceived(int $userId, PDO $pdo): int
+{
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) AS total FROM invitation WHERE Id_Utilisateur = ?");
+        $stmt->execute([$userId]);
+        $r = $stmt->fetch();
+        return (int)($r['total'] ?? 0);
+    } catch (PDOException $e) {
+        return 0;
+    }
+}
+
+function countInvitationsAccepted(int $userId, PDO $pdo): int
+{
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) AS total FROM invitation WHERE Id_Utilisateur = ? AND statut = 'accepted'");
+        $stmt->execute([$userId]);
+        $r = $stmt->fetch();
+        return (int)($r['total'] ?? 0);
+    } catch (PDOException $e) {
+        return 0;
+    }
+}
+
+function countInvitationsPending(int $userId, PDO $pdo): int
+{
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) AS total FROM invitation WHERE Id_Utilisateur = ? AND statut = 'pending'");
+        $stmt->execute([$userId]);
+        $r = $stmt->fetch();
+        return (int)($r['total'] ?? 0);
+    } catch (PDOException $e) {
+        return 0;
+    }
+}
+
+function getUserInvitationsByStatus(int $userId, ?string $status, PDO $pdo): array
+{
+    try {
+        if ($status === null) {
+            $stmt = $pdo->prepare("
+                SELECT i.*, c.titre AS capsule_titre
+                FROM invitation i
+                LEFT JOIN capsule c ON c.Id_Capsule = i.Id_Capsule
+                WHERE i.Id_Utilisateur = ?
+                ORDER BY i.date_envoi DESC
+            ");
+            $stmt->execute([$userId]);
+        } else {
+            $stmt = $pdo->prepare("
+                SELECT i.*, c.titre AS capsule_titre
+                FROM invitation i
+                LEFT JOIN capsule c ON c.Id_Capsule = i.Id_Capsule
+                WHERE i.Id_Utilisateur = ? AND i.statut = ?
+                ORDER BY i.date_envoi DESC
+            ");
+            $stmt->execute([$userId, $status]);
+        }
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        return [];
+    }
+}
+
+$userId = $_SESSION['user_id'] ?? null;
+$totalInvitations = $userId ? countInvitationsReceived($userId, $pdo) : 0;
+$totalAccepted = $userId ? countInvitationsAccepted($userId, $pdo) : 0;
+$totalPending = $userId ? countInvitationsPending($userId, $pdo) : 0;
+
+$invitationsAll     = $userId ? getUserInvitationsByStatus($userId, null, $pdo) : [];
+$invitationsAccepted= $userId ? getUserInvitationsByStatus($userId, 'accepted', $pdo) : [];
+$invitationsPending = $userId ? getUserInvitationsByStatus($userId, 'pending', $pdo) : [];
+
 ?>
-<script>const sidebar = document.getElementById('sidebar');
+<script>
+  const sidebar = document.getElementById('sidebar');
     const toggleSidebar = document.getElementById('toggleSidebar');
     const search = document.getElementById('inviteSearch');
     const rows = Array.from(document.querySelectorAll('#inviteList .cv-list-item'));
@@ -118,31 +195,66 @@ require_once __DIR__ . '/../includes/layout.php';
       </div>
 
       <div class="d-flex flex-column gap-3" id="inviteList">
-        <div class="d-flex justify-content-between align-items-center gap-3 pb-3 border-bottom" data-status="pending" data-search="marie dupont capsule anniversaire">
-          <div>
-            <strong>Marie Dupont</strong>
-            <div class="card-desc mb-0" style="-webkit-line-clamp:1; line-clamp:1; margin-bottom:0;">Capsule anniversaire · reçue il y a 2 h</div>
-          </div>
-          <div class="d-flex flex-wrap justify-content-end gap-2 align-items-center">
-            <span class="badge-cv badge-soon">En attente</span>
+  <div>
+    <h5>En attente (<?= $totalPending ?>)</h5>
+    <?php foreach ($invitationsPending as $inv): ?>
+      <div class="d-flex justify-content-between align-items-center gap-3 pb-3 border-bottom cv-list-item"
+           data-status="<?= h($inv['statut']) ?>" data-search="<?= strtolower(h($inv['capsule_titre'] ?? '')) ?>">
+        <div>
+          <strong><?= h($inv['capsule_titre'] ?? 'Capsule') ?></strong>
+          <div class="card-desc mb-0"><?= h($inv['date_envoi'] ?? '') ?></div>
+        </div>
+        <div class="d-flex flex-wrap justify-content-end gap-2 align-items-center">
+          <span class="badge-cv badge-soon">En attente</span>
+          <button class="btn-primary-cv" type="button" data-action="accept">Accepter</button>
+          <button class="btn-filter" type="button" data-action="decline">Refuser</button>
+        </div>
+      </div>
+    <?php endforeach; ?>
+  </div>
+
+  <div>
+    <h5>Acceptées (<?= $totalAccepted ?>)</h5>
+    <?php foreach ($invitationsAccepted as $inv): ?>
+      <div class="d-flex justify-content-between align-items-center gap-3 pb-3 border-bottom cv-list-item"
+           data-status="<?= h($inv['statut']) ?>" data-search="<?= strtolower(h($inv['capsule_titre'] ?? '')) ?>">
+        <div>
+          <strong><?= h($inv['capsule_titre'] ?? 'Capsule') ?></strong>
+          <div class="card-desc mb-0"><?= h($inv['date_envoi'] ?? '') ?></div>
+        </div>
+        <div class="d-flex flex-wrap justify-content-end gap-2 align-items-center">
+          <span class="badge-cv badge-sealed">Acceptée</span>
+          <button class="btn-filter" type="button" data-action="view">Voir</button>
+        </div>
+      </div>
+    <?php endforeach; ?>
+  </div>
+
+  <div>
+    <h5>Toutes les invitations (<?= $totalReceived ?>)</h5>
+    <?php foreach ($invitationsAll as $inv): ?>
+      <div class="d-flex justify-content-between align-items-center gap-3 pb-3 border-bottom cv-list-item"
+           data-status="<?= h($inv['statut']) ?>" data-search="<?= strtolower(h($inv['capsule_titre'] ?? '')) ?>">
+        <div>
+          <strong><?= h($inv['capsule_titre'] ?? 'Capsule') ?></strong>
+          <div class="card-desc mb-0"><?= h($inv['date_envoi'] ?? '') ?></div>
+        </div>
+        <div class="d-flex flex-wrap justify-content-end gap-2 align-items-center">
+          <span class="badge-cv <?= $inv['statut'] === 'accepted' ? 'badge-sealed' : 'badge-soon' ?>">
+            <?= h(ucfirst($inv['statut'] ?? '')) ?>
+          </span>
+          <?php if (($inv['statut'] ?? '') === 'pending'): ?>
             <button class="btn-primary-cv" type="button" data-action="accept">Accepter</button>
             <button class="btn-filter" type="button" data-action="decline">Refuser</button>
-          </div>
-        </div>
-
-        <div class="d-flex justify-content-between align-items-center gap-3 pb-3 border-bottom" data-status="accepted" data-search="lucas bernard capsule projet">
-          <div>
-            <strong>Lucas Bernard</strong>
-            <div class="card-desc mb-0" style="-webkit-line-clamp:1; line-clamp:1; margin-bottom:0;">Capsule projet · accepté hier</div>
-          </div>
-          <div class="d-flex flex-wrap justify-content-end gap-2 align-items-center">
-            <span class="badge-cv badge-sealed">Acceptée</span>
+          <?php else: ?>
             <button class="btn-filter" type="button" data-action="view">Voir</button>
-          </div>
+          <?php endif; ?>
         </div>
-
-    
       </div>
+    <?php endforeach; ?>
+  </div>
+</div>
+      
     </div>
   </div>
 
