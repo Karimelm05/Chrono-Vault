@@ -886,7 +886,7 @@ $activePage = $activePage ?? '';
         <span class="material-symbols-outlined">help</span>
         <span>Aide</span>
       </a>
-      <a href="logout.php" class="nav-link-item">
+      <a href="../includes/logout.php" class="nav-link-item">
         <span class="material-symbols-outlined">logout</span>
         <span>Déconnexion</span>
       </a>
