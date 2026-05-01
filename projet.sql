@@ -6,6 +6,8 @@
 -- Généré le : ven. 01 mai 2026 à 01:19
 -- Version du serveur : 10.4.32-MariaDB
 -- Version de PHP : 8.0.30
+CREATE DATABASE IF NOT EXISTS chrono_vault;
+USE chrono_vault;
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;

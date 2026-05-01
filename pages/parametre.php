@@ -1,7 +1,81 @@
 <?php
-$pageTitle = 'Paramètres | ChronoVault';
-$activePage = 'parametre';
+require_once __DIR__ . '/../includes/app.php';
+cv_require_login();
+
+$user = cv_current_user();
+$userId = (int)($user['id'] ?? 0);
+
+$stmt = $pdo->prepare('SELECT Id_Utilisateur, nom, email, mot_de_passe, role FROM utilisateur WHERE Id_Utilisateur = :user_id LIMIT 1');
+$stmt->execute([':user_id' => $userId]);
+$profile = $stmt->fetch();
+
+if (!$profile) {
+    cv_flash_set('danger', 'Utilisateur introuvable.');
+    header('Location: ../index.php');
+    exit();
+}
+
+$errors = [];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+
+    if ($action === 'update_profile') {
+        $fullName = trim($_POST['full_name'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+
+        if ($fullName === '' || $email === '') {
+            $errors[] = 'Le nom et l’email sont obligatoires.';
+        } else {
+            $stmt = $pdo->prepare('SELECT Id_Utilisateur FROM utilisateur WHERE email = :email AND Id_Utilisateur <> :user_id LIMIT 1');
+            $stmt->execute([':email' => $email, ':user_id' => $userId]);
+
+            if ($stmt->fetch()) {
+                $errors[] = 'Cet email est déjà utilisé.';
+            } else {
+                $stmt = $pdo->prepare('UPDATE utilisateur SET nom = :nom, email = :email WHERE Id_Utilisateur = :user_id');
+                $stmt->execute([
+                    ':nom' => $fullName,
+                    ':email' => $email,
+                    ':user_id' => $userId,
+                ]);
+
+                $_SESSION['user']['name'] = $fullName;
+                $_SESSION['user']['email'] = $email;
+                cv_flash_set('success', 'Profil mis à jour.');
+                header('Location: parametre.php');
+                exit();
+            }
+        }
+    }
+
+    if ($action === 'change_password') {
+        $currentPassword = trim($_POST['current_password'] ?? '');
+        $newPassword = trim($_POST['new_password'] ?? '');
+        $confirmPassword = trim($_POST['confirm_password'] ?? '');
+
+        if ($currentPassword === '' || $newPassword === '' || $confirmPassword === '') {
+            $errors[] = 'Tous les champs du mot de passe sont obligatoires.';
+        } elseif (!cv_password_matches($currentPassword, (string)$profile['mot_de_passe'])) {
+            $errors[] = 'Le mot de passe actuel est incorrect.';
+        } elseif ($newPassword !== $confirmPassword) {
+            $errors[] = 'La confirmation du nouveau mot de passe ne correspond pas.';
+        } else {
+            $stmt = $pdo->prepare('UPDATE utilisateur SET mot_de_passe = :mot_de_passe WHERE Id_Utilisateur = :user_id');
+            $stmt->execute([
+                ':mot_de_passe' => password_hash($newPassword, PASSWORD_DEFAULT),
+                ':user_id' => $userId,
+            ]);
+
+            cv_flash_set('success', 'Mot de passe mis à jour.');
+            header('Location: parametre.php');
+            exit();
+        }
+    }
+}
+
 require_once __DIR__ . '/../includes/layout.php';
+$flash = cv_flash_get();
 ?>
 
 <header class="page-header">
@@ -11,111 +85,87 @@ require_once __DIR__ . '/../includes/layout.php';
         <div class="title-accent"></div>
         <h2 class="page-title">Paramètres</h2>
       </div>
-      <p class="page-subtitle mb-0">Gérez votre compte, vos préférences et vos notifications.</p>
+      <p class="page-subtitle mb-0">Gérez votre compte et votre sécurité.</p>
     </div>
-    <button class="btn-primary-cv" type="button">Enregistrer</button>
   </div>
+
+  <?php if ($flash): ?>
+    <div class="alert alert-<?php echo h($flash['type'] ?? 'info'); ?>" role="alert"><?php echo h($flash['message'] ?? ''); ?></div>
+  <?php endif; ?>
+
+  <?php foreach ($errors as $error): ?>
+    <div class="alert alert-danger" role="alert"><?php echo h($error); ?></div>
+  <?php endforeach; ?>
 </header>
 
 <section class="cards-section">
   <div class="row g-4 justify-content-center">
-    <!-- Profil -->
-    <div class="col-12 col-lg-8 mx-auto">
-      <div class="capsule-card" style="height:auto; min-height: 260px;">
+    <div class="col-12 col-lg-8">
+      <div class="capsule-card" style="height:auto;">
         <div class="card-body-cv">
           <h3 class="card-title-cv">Profil</h3>
-          <form id="profileForm">
+          <form method="post">
+            <input type="hidden" name="action" value="update_profile" />
 
             <div class="mb-3">
-              <label class="form-label-cv" for="displayName">Nom complet</label>
-              <input id="displayName" class="form-input-cv" type="text" value="ZeroVector" />
+              <label class="form-label-cv" for="full_name">Nom complet</label>
+              <input id="full_name" name="full_name" class="form-input-cv" type="text" value="<?php echo h((string)$profile['nom']); ?>" />
             </div>
 
             <div class="mb-3">
-              <label class="form-label-cv" for="emailAddress">Adresse email</label>
-              <input id="emailAddress" class="form-input-cv" type="email" value="zerovector@example.com" />
+              <label class="form-label-cv" for="email">Adresse email</label>
+              <input id="email" name="email" class="form-input-cv" type="email" value="<?php echo h((string)$profile['email']); ?>" />
             </div>
 
             <div class="d-flex justify-content-end">
-              <button type="button" id="saveProfile" class="btn-primary-cv">Enregistrer</button>
+              <button type="submit" class="btn-primary-cv">Enregistrer le profil</button>
             </div>
           </form>
         </div>
       </div>
     </div>
 
-
-    <!-- Sécurité -->
-    <div class="col-12 col-lg-8 mx-auto">
-      <div class="capsule-card" style="height:auto; min-height: 220px;">
+    <div class="col-12 col-lg-8">
+      <div class="capsule-card" style="height:auto;">
         <div class="card-body-cv">
           <h3 class="card-title-cv">Sécurité</h3>
-          <p class="card-desc">Changez votre mot de passe. Les champs ci-dessous permettent de modifier votre accès.</p>
-          <div class="mb-2">
-            <label class="form-label-cv">Mot de passe actuel</label>
-            <div class="d-flex">
-              <input id="currentPassword" type="password" class="form-input-cv" />
-              <button type="button" class="btn-filter ms-2 toggle-password" data-target="currentPassword">Afficher</button>
+          <p class="card-desc">Changez votre mot de passe en confirmant votre mot de passe actuel.</p>
+
+          <form method="post">
+            <input type="hidden" name="action" value="change_password" />
+
+            <div class="mb-3">
+              <label class="form-label-cv" for="current_password">Mot de passe actuel</label>
+              <input id="current_password" name="current_password" type="password" class="form-input-cv" />
             </div>
-          </div>
-          <div class="mb-2">
-            <label class="form-label-cv">Nouveau mot de passe</label>
-            <div class="d-flex">
-              <input id="newPassword" type="password" class="form-input-cv" />
-              <button type="button" class="btn-filter ms-2 toggle-password" data-target="newPassword">Afficher</button>
+
+            <div class="mb-3">
+              <label class="form-label-cv" for="new_password">Nouveau mot de passe</label>
+              <input id="new_password" name="new_password" type="password" class="form-input-cv" />
             </div>
-          </div>
-          <div class="mb-2">
-            <label class="form-label-cv">Confirmer le nouveau mot de passe</label>
-            <div class="d-flex">
-              <input id="confirmPassword" type="password" class="form-input-cv" />
-              <button type="button" class="btn-filter ms-2 toggle-password" data-target="confirmPassword">Afficher</button>
+
+            <div class="mb-3">
+              <label class="form-label-cv" for="confirm_password">Confirmer le nouveau mot de passe</label>
+              <input id="confirm_password" name="confirm_password" type="password" class="form-input-cv" />
             </div>
-          </div>
-          <div class="d-flex gap-2 mt-2">
-            <button id="changePassword" class="btn-filter">Changer le mot de passe</button>
-            <button id="logoutSessions" class="btn-filter">Déconnecter les sessions</button>
-          </div>
+
+            <div class="d-flex justify-content-end gap-2">
+              <button type="submit" class="btn-filter">Mettre à jour le mot de passe</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
 
-    <!-- Zone de danger -->
-    <div class="col-12 col-lg-8 mx-auto">
-      <div class="capsule-card border-danger" style="height:auto; min-height: 220px;">
+    <div class="col-12 col-lg-8">
+      <div class="capsule-card" style="height:auto;">
         <div class="card-body-cv">
           <h3 class="card-title-cv text-danger">Zone de danger</h3>
-          <p class="card-desc">Suppression définitive du compte et de toutes les capsules associées. Cette action est irréversible.</p>
-          <div class="d-flex justify-content-end">
-            <button id="deleteAccount" class="btn btn-danger">Supprimer</button>
-          </div>
+          <p class="card-desc">La suppression du compte n’est pas encore activée dans cette version du backend.</p>
         </div>
       </div>
     </div>
-
   </div>
 </section>
-
-<script>
-// Avatar preview + validation (max 2 MB)
-const avatarFile = document.getElementById('avatarFile');
-if (avatarFile) {
-  avatarFile.addEventListener('change', function(){
-    const file = this.files[0];
-    if (!file) return;
-    const allowed = ['image/jpeg','image/png','image/gif'];
-    if (!allowed.includes(file.type)) { alert('Format non autorisé. Utilisez JPG, PNG ou GIF.'); this.value = ''; return; }
-    if (file.size > 2 * 1024 * 1024) { alert('Le fichier est trop volumineux (max 2 MB).'); this.value = ''; return; }
-    const img = document.getElementById('avatarPreview'); img.src = URL.createObjectURL(file);
-  });
-}
-
-// Toggle password visibility
-document.querySelectorAll('.toggle-password').forEach(function(btn){ btn.addEventListener('click', function(){ const targetId = this.getAttribute('data-target'); const input = document.getElementById(targetId); if (!input) return; if (input.type === 'password') { input.type = 'text'; this.textContent = 'Masquer'; } else { input.type = 'password'; this.textContent = 'Afficher'; } }); });
-
-// Delete account confirmation
-document.getElementById('deleteAccount')?.addEventListener('click', function(){ if (confirm('Confirmez-vous la suppression définitive de votre compte et de toutes les capsules associées ?')) { alert('Suppression simulée. Implémentez la logique côté serveur.'); } });
-
-</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

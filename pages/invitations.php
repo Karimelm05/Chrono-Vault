@@ -1,152 +1,144 @@
-﻿<?php
-$pageTitle = 'Invitations | ChronoVault';
-$activePage = 'invitations';
+<?php
+require_once __DIR__ . '/../includes/app.php';
+cv_require_login();
+
+$user = cv_current_user();
+$userId = (int)($user['id'] ?? 0);
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    $invitationId = (int)($_POST['invitation_id'] ?? 0);
+
+    if (in_array($action, ['accept', 'decline'], true)) {
+        $status = $action === 'accept' ? 'accepted' : 'declined';
+        $stmt = $pdo->prepare('UPDATE invitation SET statut = :status WHERE Id_Invitation = :invitation_id AND Id_Utilisateur = :user_id');
+        $stmt->execute([
+            ':status' => $status,
+            ':invitation_id' => $invitationId,
+            ':user_id' => $userId,
+        ]);
+
+        cv_flash_set('success', $status === 'accepted' ? 'Invitation acceptée.' : 'Invitation refusée.');
+    }
+
+    header('Location: invitations.php');
+    exit();
+}
+
+$stmt = $pdo->prepare(
+    'SELECT i.Id_Invitation, i.statut, i.date_envoi, i.Id_Capsule,
+            c.titre, c.description, c.date_ouverture,
+            u.nom AS owner_name
+     FROM invitation i
+     INNER JOIN capsule c ON c.Id_Capsule = i.Id_Capsule
+     INNER JOIN utilisateur u ON u.Id_Utilisateur = c.Id_Utilisateur
+     WHERE i.Id_Utilisateur = :user_id
+     ORDER BY i.date_envoi DESC, i.Id_Invitation DESC'
+);
+$stmt->execute([':user_id' => $userId]);
+$invitations = $stmt->fetchAll();
+
+$counts = ['pending' => 0, 'accepted' => 0, 'declined' => 0];
+foreach ($invitations as $invitation) {
+    $status = (string)($invitation['statut'] ?? 'pending');
+    if (!isset($counts[$status])) {
+        $counts[$status] = 0;
+    }
+    $counts[$status]++;
+}
+
 require_once __DIR__ . '/../includes/layout.php';
+$flash = cv_flash_get();
 ?>
-<script>const sidebar = document.getElementById('sidebar');
-    const toggleSidebar = document.getElementById('toggleSidebar');
-    const search = document.getElementById('inviteSearch');
-    const rows = Array.from(document.querySelectorAll('#inviteList .cv-list-item'));
-    const filterButtons = document.querySelectorAll('[data-filter]');
 
-    if (toggleSidebar && sidebar) {
-      toggleSidebar.addEventListener('click', () => {
-        sidebar.classList.toggle('is-open');
-      });
-    }
-
-    let activeFilter = 'all';
-
-    function refreshList() {
-      const query = (search?.value || '').toLowerCase().trim();
-
-      rows.forEach((row) => {
-        const matchesFilter = activeFilter === 'all' || row.dataset.status === activeFilter;
-        const matchesSearch = !query || row.dataset.search.includes(query);
-        row.style.display = matchesFilter && matchesSearch ? '' : 'none';
-      });
-    }
-
-    filterButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        activeFilter = button.dataset.filter;
-        refreshList();
-      });
-    });
-
-    search?.addEventListener('input', refreshList);
-
-    document.getElementById('inviteList')?.addEventListener('click', (event) => {
-      const button = event.target.closest('[data-action]');
-      if (!button) {
-        return;
-      }
-
-      const row = event.target.closest('.cv-list-item');
-      if (!row) {
-        return;
-      }
-
-      const action = button.dataset.action;
-
-      if (action === 'accept') {
-        row.dataset.status = 'accepted';
-        row.innerHTML = `
-          <div>
-            <strong>Marie Dupont</strong>
-            <div class="cv-muted">Capsule anniversaire · acceptée</div>
-          </div>
-          <div class="cv-actions">
-            <span class="cv-pill accepted">Acceptée</span>
-            <button class="cv-btn cv-btn-secondary" type="button" data-action="view">Voir</button>
-          </div>
-        `;
-      }
-
-      if (action === 'decline') {
-        row.dataset.status = 'declined';
-        row.innerHTML = `
-          <div>
-            <strong>Marie Dupont</strong>
-            <div class="cv-muted">Capsule anniversaire · refusée</div>
-          </div>
-          <div class="cv-actions">
-            <span class="cv-pill declined">Refusée</span>
-            <button class="cv-btn cv-btn-secondary" type="button" data-action="resend">Renvoyer</button>
-          </div>
-        `;
-      }
-
-      if (action === 'resend') {
-        alert('Invitation renvoyée');
-      }
-
-      if (action === 'view') {
-        alert('Ouverture de la capsule associée');
-      }
-
-      refreshList();
-    });
-
-    document.getElementById('markAllRead')?.addEventListener('click', () => {
-      alert('Invitations marquées comme lues');
-    });
-
-    refreshList();</script>
 <header class="page-header">
   <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4">
     <div>
       <div class="page-title-bar">
-    <div class="title-accent"></div>
-    <h2 class="page-title">Invitations</h2>
+        <div class="title-accent"></div>
+        <h2 class="page-title">Invitations</h2>
       </div>
-      <p class="page-subtitle mb-0">Suivez les capsules partagées et les demandes de participation.</p>
+      <p class="page-subtitle mb-0">Suivez les capsules partagées et répondez aux invitations.</p>
     </div>
-    <button class="btn-primary-cv" id="markAllRead" type="button">Tout marquer comme lu</button>
   </div>
+
+  <?php if ($flash): ?>
+    <div class="alert alert-<?php echo h($flash['type'] ?? 'info'); ?>" role="alert"><?php echo h($flash['message'] ?? ''); ?></div>
+  <?php endif; ?>
 </header>
 
 <section class="cards-section">
-  <div class="capsule-card" style="height:auto; min-height: 220px; margin-bottom: 1.5rem;">
-    <div class="card-body-cv">
-      <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-        <input class="search-input" id="inviteSearch" type="search" placeholder="Rechercher un invité ou une capsule" style="max-width: 360px;">
-        <button class="btn-filter" type="button" data-filter="all">Toutes</button>
-        <button class="btn-filter" type="button" data-filter="pending">En attente</button>
-        <button class="btn-filter" type="button" data-filter="accepted">Acceptées</button>
-        <button class="btn-filter" type="button" data-filter="declined">Refusées</button>
+  <div class="row g-4 mb-4">
+    <div class="col-12 col-md-4">
+      <div class="capsule-card" style="height:auto; min-height: 150px;">
+        <div class="card-body-cv">
+          <p class="card-category">En attente</p>
+          <h3 class="card-title-cv stat-number"><?php echo (int)$counts['pending']; ?></h3>
+        </div>
       </div>
-
-      <div class="d-flex flex-column gap-3" id="inviteList">
-        <div class="d-flex justify-content-between align-items-center gap-3 pb-3 border-bottom" data-status="pending" data-search="marie dupont capsule anniversaire">
-          <div>
-            <strong>Marie Dupont</strong>
-            <div class="card-desc mb-0" style="-webkit-line-clamp:1; line-clamp:1; margin-bottom:0;">Capsule anniversaire · reçue il y a 2 h</div>
-          </div>
-          <div class="d-flex flex-wrap justify-content-end gap-2 align-items-center">
-            <span class="badge-cv badge-soon">En attente</span>
-            <button class="btn-primary-cv" type="button" data-action="accept">Accepter</button>
-            <button class="btn-filter" type="button" data-action="decline">Refuser</button>
-          </div>
+    </div>
+    <div class="col-12 col-md-4">
+      <div class="capsule-card" style="height:auto; min-height: 150px;">
+        <div class="card-body-cv">
+          <p class="card-category">Acceptées</p>
+          <h3 class="card-title-cv stat-number"><?php echo (int)$counts['accepted']; ?></h3>
         </div>
-
-        <div class="d-flex justify-content-between align-items-center gap-3 pb-3 border-bottom" data-status="accepted" data-search="lucas bernard capsule projet">
-          <div>
-            <strong>Lucas Bernard</strong>
-            <div class="card-desc mb-0" style="-webkit-line-clamp:1; line-clamp:1; margin-bottom:0;">Capsule projet · accepté hier</div>
-          </div>
-          <div class="d-flex flex-wrap justify-content-end gap-2 align-items-center">
-            <span class="badge-cv badge-sealed">Acceptée</span>
-            <button class="btn-filter" type="button" data-action="view">Voir</button>
-          </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-4">
+      <div class="capsule-card" style="height:auto; min-height: 150px;">
+        <div class="card-body-cv">
+          <p class="card-category">Refusées</p>
+          <h3 class="card-title-cv stat-number"><?php echo (int)$counts['declined']; ?></h3>
         </div>
-
-    
       </div>
     </div>
   </div>
 
-  
-</section>
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+  <div class="capsule-card" style="height:auto; min-height: 220px;">
+    <div class="card-body-cv">
+      <h3 class="card-title-cv mb-4">Boîte de réception</h3>
 
+      <?php if (!$invitations): ?>
+        <p class="card-desc mb-0">Aucune invitation pour le moment.</p>
+      <?php else: ?>
+        <div class="d-flex flex-column gap-3">
+          <?php foreach ($invitations as $invitation): ?>
+            <?php
+              $status = (string)$invitation['statut'];
+              $badgeClass = $status === 'accepted' ? 'badge-sealed' : ($status === 'declined' ? 'badge-draft' : 'badge-soon');
+              $openDate = !empty($invitation['date_ouverture']) ? date('d/m/Y', strtotime((string)$invitation['date_ouverture'])) : 'Non définie';
+            ?>
+            <div class="d-flex justify-content-between align-items-center gap-3 pb-3 border-bottom flex-wrap">
+              <div>
+                <strong><?php echo h((string)$invitation['titre']); ?></strong>
+                <div class="card-desc mb-0" style="-webkit-line-clamp:1; line-clamp:1; margin-bottom:0;">
+                  Par <?php echo h((string)$invitation['owner_name']); ?> · ouverture <?php echo h($openDate); ?>
+                </div>
+              </div>
+
+              <div class="d-flex flex-wrap justify-content-end gap-2 align-items-center">
+                <span class="badge-cv <?php echo $badgeClass; ?>"><?php echo h(ucfirst($status)); ?></span>
+
+                <?php if ($status === 'pending'): ?>
+                  <form method="post" class="d-inline">
+                    <input type="hidden" name="action" value="accept" />
+                    <input type="hidden" name="invitation_id" value="<?php echo (int)$invitation['Id_Invitation']; ?>" />
+                    <button class="btn-primary-cv" type="submit">Accepter</button>
+                  </form>
+                  <form method="post" class="d-inline">
+                    <input type="hidden" name="action" value="decline" />
+                    <input type="hidden" name="invitation_id" value="<?php echo (int)$invitation['Id_Invitation']; ?>" />
+                    <button class="btn-filter" type="submit">Refuser</button>
+                  </form>
+                <?php endif; ?>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
+    </div>
+  </div>
+</section>
+
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>

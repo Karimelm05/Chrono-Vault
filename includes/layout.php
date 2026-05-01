@@ -1,6 +1,22 @@
 <?php
 $pageTitle = $pageTitle ?? 'ChronoVault';
 $activePage = $activePage ?? '';
+
+if (session_status() === PHP_SESSION_NONE) {
+  session_start();
+}
+
+$sidebarUserName = trim((string)($_SESSION['user']['name'] ?? 'Utilisateur'));
+if ($sidebarUserName === '') {
+  $sidebarUserName = 'Utilisateur';
+}
+
+$sidebarUserEmail = trim((string)($_SESSION['user']['email'] ?? ''));
+
+$sidebarUserAvatarAlt = $sidebarUserName;
+if ($sidebarUserEmail !== '') {
+  $sidebarUserAvatarAlt .= ' (' . $sidebarUserEmail . ')';
+}
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -871,19 +887,19 @@ $activePage = $activePage ?? '';
 
     <div class="mt-auto">
       <div class="sidebar-divider"></div>
-      <a href="#" class="nav-link-item">
+      <a href="aide.php" class="nav-link-item <?php echo $activePage === 'aide' ? 'active' : ''; ?>">
         <span class="material-symbols-outlined">help</span>
         <span>Aide</span>
       </a>
-      <a href="../index.php" class="nav-link-item">
+      <a href="logout.php" class="nav-link-item">
         <span class="material-symbols-outlined">logout</span>
         <span>Déconnexion</span>
       </a>
       <div class="user-profile">
         <img
           src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuDd-TmfhHzFEd72RVUQR1QLqv3rap1YuN2tD4wPGsuEuj2TRdZnhQp852Q-_MgU_-CJMOF83pjT582yPw5Bh4zSkjTqAa9jcguFJ6Yg4evelTl__N24VzM540KrOqNwxetmthLkbBlb3LoqzDBCtUKR8NbtfnN2kvcGhVchmAUEp4vhpgcsVSUiJzlw3FaD5bUmVjtFXD3nenzZEZ2yUArKpglz317i6iqEgJro57xU2B7iwls5vKnEy2_VUs4nf5kiHhmj_PgMyV"
-          alt="Marc-Antoine" class="user-avatar"/>
-        <div class="user-name">Marc-Antoine</div>
+          alt="<?php echo htmlspecialchars($sidebarUserAvatarAlt, ENT_QUOTES, 'UTF-8'); ?>" class="user-avatar"/>
+        <div class="user-name"><?php echo htmlspecialchars($sidebarUserName, ENT_QUOTES, 'UTF-8'); ?></div>
       </div>
     </div>
   </aside>

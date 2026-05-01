@@ -1,215 +1,181 @@
 <?php
-$pageTitle = 'Capsule cfdfds | ChronoVault';
-$activePage = 'capsules';
+require_once __DIR__ . '/../includes/app.php';
+cv_require_login();
 
-require_once __DIR__ . '/../includes/layout.php';
-require_once __DIR__ . '/../includes/fonctions.php';
+$user = cv_current_user();
+$userId = (int)($user['id'] ?? 0);
+$errors = [];
 
-$capsuleName = 'cfdfds';
-$capsuleDescription = 'Capsule privee: le contenu reste chiffre jusqu\'a la date d\'ouverture.';
-$openDate = '2026-05-20 00:00:00';
-$creatorName = 'fff';
-
-$flashType = '';
-$flashMessage = '';
-
-/**
- * Avoids loading DB config when DB_NAME is empty in config.php.
- */
-function isDbConfigured(string $configPath): bool
-{
-    if (!is_file($configPath)) {
-        return false;
-    }
-
-    $content = file_get_contents($configPath);
-    if ($content === false) {
-        return false;
-    }
-
-    if (preg_match("/define\('DB_NAME',\s*'([^']*)'\);/", $content, $m) !== 1) {
-        return false;
-    }
-
-    return trim($m[1]) !== '';
-}
-
-/**
- * Inserts values in matching columns only, based on table schema.
- */
-function insertDynamic(PDO $pdo, string $table, array $data): bool
-{
-    $stmt = $pdo->query('SHOW COLUMNS FROM `' . $table . '`');
-    $columns = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
-
-    if (!$columns) {
-        return false;
-    }
-
-    $columnMap = [];
-    foreach ($columns as $column) {
-        $field = (string)($column['Field'] ?? '');
-        if ($field !== '') {
-            $columnMap[strtolower($field)] = $field;
-        }
-    }
-
-    $insertCols = [];
-    $insertVals = [];
-
-    foreach ($data as $key => $value) {
-        $lookup = strtolower((string)$key);
-        if (!isset($columnMap[$lookup])) {
-            continue;
-        }
-
-        $insertCols[] = '`' . $columnMap[$lookup] . '`';
-        $insertVals[] = $value;
-    }
-
-    if (!$insertCols) {
-        return false;
-    }
-
-    $placeholders = implode(', ', array_fill(0, count($insertCols), '?'));
-    $sql = 'INSERT INTO `' . $table . '` (' . implode(', ', $insertCols) . ') VALUES (' . $placeholders . ')';
-    $insertStmt = $pdo->prepare($sql);
-
-    return $insertStmt->execute($insertVals);
-}
+$capsuleId = (int)($_GET['id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $configPath = __DIR__ . '/../config.php';
+    $action = $_POST['action'] ?? '';
+    $capsuleId = (int)($_POST['capsule_id'] ?? $capsuleId);
 
-    if (!isDbConfigured($configPath)) {
-        $flashType = 'warning';
-        $flashMessage = 'Base de donnees non configuree. Renseignez DB_NAME dans config.php pour enregistrer MEDIA et INVITATION.';
-    } else {
-        require_once $configPath;
+    if ($action === 'add_souvenir') {
+        $type = ($_POST['souvenir_type'] ?? 'message') === 'photo' ? 'photo' : 'message';
+        $message = trim($_POST['souvenir_message'] ?? '');
 
-        try {
-            $action = $_POST['action'] ?? '';
-            $now = date('Y-m-d H:i:s');
+        if ($type === 'message' && $message === '') {
+          $errors[] = 'Le message est obligatoire.';
+        } elseif ($type === 'photo' && empty($_FILES['souvenir_photo']['name'])) {
+          $errors[] = 'Veuillez sélectionner une photo.';
+        } else {
+          // Permission check: only owner or invited users can post
+          $permStmt = $pdo->prepare('SELECT Id_Utilisateur FROM capsule WHERE Id_Capsule = :capsule_id LIMIT 1');
+          $permStmt->execute([':capsule_id' => $capsuleId]);
+          $ownerId = (int)$permStmt->fetchColumn();
+          $allowed = false;
+          if ($ownerId === $userId) {
+            $allowed = true;
+          } else {
+            $invStmt = $pdo->prepare('SELECT COUNT(*) FROM invitation WHERE Id_Capsule = :capsule_id AND Id_Utilisateur = :user_id');
+            $invStmt->execute([':capsule_id' => $capsuleId, ':user_id' => $userId]);
+            $allowed = (int)$invStmt->fetchColumn() > 0;
+          }
 
-            if ($action === 'add_content') {
-                $contentType = ($_POST['content_type'] ?? 'message') === 'photo' ? 'photo' : 'message';
-                $messageText = trim($_POST['future_message'] ?? '');
-                $storedPath = null;
+          if (! $allowed) {
+            $errors[] = 'Vous n\'avez pas la permission de poster dans cette capsule.';
+          } else {
+            try {
+              $donnee = $message;
 
-                if ($contentType === 'message' && $messageText === '') {
-                    throw new RuntimeException('Le message est obligatoire.');
-                }
+              if ($type === 'photo') {
+                $donnee = cv_store_upload_file($_FILES['souvenir_photo'], 'images/uploads', 'souvenir');
+              }
 
-                if ($contentType === 'photo') {
-                    if (!isset($_FILES['future_photo']) || !is_array($_FILES['future_photo'])) {
-                        throw new RuntimeException('Aucune photo envoyee.');
-                    }
+              $stmt = $pdo->prepare('INSERT INTO souvenir (type, donnee, date_poste, Id_Utilisateur, Id_Capsule) VALUES (:type, :donnee, :date_poste, :user_id, :capsule_id)');
+              $stmt->execute([
+                ':type' => $type,
+                ':donnee' => $donnee,
+                ':date_poste' => cv_now(),
+                ':user_id' => $userId,
+                ':capsule_id' => $capsuleId,
+              ]);
 
-                    $photo = $_FILES['future_photo'];
-                    if (($photo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-                        throw new RuntimeException('Erreur lors de l\'upload photo.');
-                    }
-
-                    $size = (int)($photo['size'] ?? 0);
-                    if ($size > 2 * 1024 * 1024) {
-                        throw new RuntimeException('Photo trop volumineuse (max 2 MB).');
-                    }
-
-                    $tmpName = (string)($photo['tmp_name'] ?? '');
-                    $mime = $tmpName !== '' ? (string)mime_content_type($tmpName) : '';
-                    $allowed = ['image/jpeg', 'image/png', 'image/gif'];
-
-                    if (!in_array($mime, $allowed, true)) {
-                        throw new RuntimeException('Format non supporte. Utilisez JPG, PNG ou GIF.');
-                    }
-
-                    $uploadsDir = __DIR__ . '/../images/uploads';
-                    if (!is_dir($uploadsDir) && !mkdir($uploadsDir, 0777, true) && !is_dir($uploadsDir)) {
-                        throw new RuntimeException('Impossible de creer le dossier images/uploads.');
-                    }
-
-                    $extension = strtolower(pathinfo((string)($photo['name'] ?? ''), PATHINFO_EXTENSION));
-                    if ($extension === '') {
-                        $extension = $mime === 'image/png' ? 'png' : ($mime === 'image/gif' ? 'gif' : 'jpg');
-                    }
-
-                    $filename = 'capsule_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
-                    $destination = $uploadsDir . '/' . $filename;
-
-                    if (!move_uploaded_file($tmpName, $destination)) {
-                        throw new RuntimeException('Impossible de sauvegarder la photo.');
-                    }
-
-                    $storedPath = '../images/uploads/' . $filename;
-                }
-
-                $mediaData = [
-                    'capsule_name' => $capsuleName,
-                    'nom_capsule' => $capsuleName,
-                    'capsule' => $capsuleName,
-                    'creator_name' => $creatorName,
-                    'auteur' => $creatorName,
-                    'owner_name' => $creatorName,
-                    'type' => $contentType,
-                    'type_media' => $contentType,
-                    'content_type' => $contentType,
-                    'message' => $contentType === 'message' ? $messageText : null,
-                    'contenu' => $contentType === 'message' ? $messageText : $storedPath,
-                    'content' => $contentType === 'message' ? $messageText : $storedPath,
-                    'photo_path' => $storedPath,
-                    'media_path' => $storedPath,
-                    'file_path' => $storedPath,
-                    'created_at' => $now,
-                    'date_ajout' => $now,
-                    'added_at' => $now,
-                ];
-
-                $ok = insertDynamic($pdo, 'MEDIA', $mediaData);
-                if (!$ok) {
-                    throw new RuntimeException('Insertion MEDIA impossible: colonnes incompatibles.');
-                }
-
-                $flashType = 'success';
-                $flashMessage = $contentType === 'message'
-                    ? 'Message ajoute a la capsule.'
-                    : 'Photo ajoutee a la capsule.';
+              cv_flash_set('success', $type === 'photo' ? 'Photo ajoutée à la capsule.' : 'Message ajouté à la capsule.');
+              header('Location: capsule.php?id=' . $capsuleId);
+              exit();
+            } catch (Throwable $e) {
+              $errors[] = $e->getMessage();
             }
+          }
+        }
+    }
 
-            if ($action === 'invite_member') {
-                $email = trim($_POST['invite_email'] ?? '');
-                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                    throw new RuntimeException('Email invalide.');
+    if ($action === 'invite_member') {
+        $inviteEmail = trim($_POST['invite_email'] ?? '');
+
+        if ($inviteEmail === '') {
+            $errors[] = 'L’adresse email est obligatoire.';
+        } else {
+            // Only capsule owner can invite members
+            $ownerCheck = $pdo->prepare('SELECT Id_Utilisateur FROM capsule WHERE Id_Capsule = :capsule_id LIMIT 1');
+            $ownerCheck->execute([':capsule_id' => $capsuleId]);
+            $ownerIdForInvite = (int)$ownerCheck->fetchColumn();
+
+            if ($ownerIdForInvite !== $userId) {
+                $errors[] = 'Seul le créateur de la capsule peut inviter des membres.';
+            } else {
+                $stmt = $pdo->prepare('SELECT Id_Utilisateur, nom FROM utilisateur WHERE email = :email LIMIT 1');
+                $stmt->execute([':email' => $inviteEmail]);
+                $invitee = $stmt->fetch();
+
+                if (!$invitee) {
+                    $errors[] = 'Aucun utilisateur ne correspond à cet email.';
+                } else {
+                    $stmt = $pdo->prepare('SELECT Id_Invitation FROM invitation WHERE Id_Capsule = :capsule_id AND Id_Utilisateur = :user_id LIMIT 1');
+                    $stmt->execute([
+                        ':capsule_id' => $capsuleId,
+                        ':user_id' => (int)$invitee['Id_Utilisateur'],
+                    ]);
+
+                    if ($stmt->fetch()) {
+                        $errors[] = 'Cette personne est déjà invitée.';
+                    } else {
+                        $stmt = $pdo->prepare('INSERT INTO invitation (statut, date_envoi, Id_Capsule, Id_Utilisateur) VALUES (:statut, :date_envoi, :capsule_id, :user_id)');
+                        $stmt->execute([
+                            ':statut' => 'pending',
+                            ':date_envoi' => cv_now(),
+                            ':capsule_id' => $capsuleId,
+                            ':user_id' => (int)$invitee['Id_Utilisateur'],
+                        ]);
+
+                        cv_flash_set('success', 'Invitation envoyée à ' . $inviteEmail . '.');
+                        header('Location: capsule.php?id=' . $capsuleId);
+                        exit();
+                    }
                 }
-
-                $invitationData = [
-                    'capsule_name' => $capsuleName,
-                    'nom_capsule' => $capsuleName,
-                    'capsule' => $capsuleName,
-                    'sender_name' => $creatorName,
-                    'creator_name' => $creatorName,
-                    'email' => $email,
-                    'invite_email' => $email,
-                    'statut' => 'pending',
-                    'status' => 'pending',
-                    'created_at' => $now,
-                    'date_invitation' => $now,
-                    'sent_at' => $now,
-                ];
-
-                $ok = insertDynamic($pdo, 'INVITATION', $invitationData);
-                if (!$ok) {
-                    throw new RuntimeException('Insertion INVITATION impossible: colonnes incompatibles.');
-                }
-
-                $flashType = 'success';
-                $flashMessage = 'Invitation envoyee a ' . h($email) . '.';
             }
-        } catch (Throwable $e) {
-            $flashType = 'danger';
-            $flashMessage = $e->getMessage();
         }
     }
 }
+
+if ($capsuleId <= 0) {
+    $stmt = $pdo->prepare(
+      'SELECT DISTINCT c.Id_Capsule FROM capsule c
+       LEFT JOIN invitation inv ON c.Id_Capsule = inv.Id_Capsule AND inv.Id_Utilisateur = :user_id
+       WHERE c.Id_Utilisateur = :user_id OR inv.Id_Utilisateur = :user_id
+       ORDER BY c.date_creation DESC, c.Id_Capsule DESC LIMIT 1'
+    );
+    $stmt->execute([':user_id' => $userId]);
+    $capsuleId = (int)($stmt->fetchColumn() ?: 0);
+}
+
+if ($capsuleId <= 0) {
+    cv_flash_set('warning', 'Aucune capsule disponible.');
+    header('Location: capsules.php');
+    exit();
+}
+
+$stmt = $pdo->prepare(
+    'SELECT c.Id_Capsule, c.titre, c.description, c.date_creation, c.date_ouverture, c.Id_Utilisateur, u.nom AS owner_name
+     FROM capsule c
+     INNER JOIN utilisateur u ON u.Id_Utilisateur = c.Id_Utilisateur
+     WHERE c.Id_Capsule = :capsule_id
+     LIMIT 1'
+);
+$stmt->execute([':capsule_id' => $capsuleId]);
+$capsule = $stmt->fetch();
+
+if (!$capsule) {
+    cv_flash_set('danger', 'Capsule introuvable.');
+    header('Location: capsules.php');
+    exit();
+}
+
+$isOwner = (int)$capsule['Id_Utilisateur'] === $userId;
+
+$stmt = $pdo->prepare('SELECT COUNT(*) FROM invitation WHERE Id_Capsule = :capsule_id AND Id_Utilisateur = :user_id');
+$stmt->execute([':capsule_id' => $capsuleId, ':user_id' => $userId]);
+$hasInvitation = (int)$stmt->fetchColumn() > 0;
+
+if (!$isOwner && !$hasInvitation) {
+    cv_flash_set('danger', 'Vous n’avez pas accès à cette capsule.');
+    header('Location: capsules.php');
+    exit();
+}
+
+$stmt = $pdo->prepare('SELECT type, donnee, date_poste FROM souvenir WHERE Id_Capsule = :capsule_id ORDER BY date_poste DESC, Id_Souvenir DESC');
+$stmt->execute([':capsule_id' => $capsuleId]);
+$souvenirs = $stmt->fetchAll();
+
+$stmt = $pdo->prepare('SELECT COUNT(*) FROM invitation WHERE Id_Capsule = :capsule_id');
+$stmt->execute([':capsule_id' => $capsuleId]);
+$memberCount = (int)$stmt->fetchColumn() + 1;
+
+$messageCount = 0;
+$photoCount = 0;
+foreach ($souvenirs as $souvenir) {
+    if (($souvenir['type'] ?? '') === 'photo') {
+        $photoCount++;
+    } else {
+        $messageCount++;
+    }
+}
+
+require_once __DIR__ . '/../includes/layout.php';
+$flash = cv_flash_get();
 ?>
 
 <header class="page-header">
@@ -217,100 +183,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div>
       <div class="page-title-bar">
         <div class="title-accent"></div>
-        <h2 class="page-title">Capsule: <?php echo h($capsuleName); ?></h2>
+        <h2 class="page-title"><?php echo h((string)$capsule['titre']); ?></h2>
       </div>
-      <p class="page-subtitle mb-0">Interface detaillee d'une capsule temporelle privee.</p>
+      <p class="page-subtitle mb-0"><?php echo h((string)($capsule['description'] ?: 'Aucune description')); ?></p>
     </div>
     <a class="btn-filter text-decoration-none" href="capsules.php">Retour aux capsules</a>
   </div>
 
-  <?php if ($flashMessage !== ''): ?>
-    <div class="alert alert-<?php echo h($flashType ?: 'info'); ?>" role="alert">
-      <?php echo h($flashMessage); ?>
-    </div>
+  <?php if ($flash): ?>
+    <div class="alert alert-<?php echo h($flash['type'] ?? 'info'); ?>" role="alert"><?php echo h($flash['message'] ?? ''); ?></div>
   <?php endif; ?>
+
+  <?php foreach ($errors as $error): ?>
+    <div class="alert alert-danger" role="alert"><?php echo h($error); ?></div>
+  <?php endforeach; ?>
 </header>
 
 <section class="cards-section">
   <div class="row g-4">
     <div class="col-12">
-      <div class="capsule-card" style="height:auto; min-height: 200px;">
+      <div class="capsule-card" style="height:auto; min-height: 180px;">
         <div class="card-body-cv">
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <span class="material-symbols-outlined" style="color:var(--color-primary)">lock</span>
-            <p class="card-category mb-0">Confidentiel jusqu'a l'ouverture</p>
-          </div>
-          <h3 class="card-title-cv mb-2"><?php echo h($capsuleName); ?></h3>
+          <p class="card-category">Confidentiel jusqu'à l'ouverture</p>
+          <h3 class="card-title-cv mb-2"><?php echo h((string)$capsule['titre']); ?></h3>
           <p class="card-desc" style="-webkit-line-clamp:unset; line-clamp:unset; margin-bottom:1rem;">
-            <?php echo h($capsuleDescription); ?>
+            Ouverture prévue le <?php echo h(!empty($capsule['date_ouverture']) ? date('d/m/Y', strtotime((string)$capsule['date_ouverture'])) : 'non définie'); ?>.
           </p>
 
-          <div class="countdown-grid" id="countdown" data-target="2026-05-20T00:00:00">
-            <div class="countdown-item"><strong id="cd-days">20</strong><span>Jours</span></div>
-            <div class="countdown-item"><strong id="cd-hours">4</strong><span>Heures</span></div>
-            <div class="countdown-item"><strong id="cd-minutes">3</strong><span>Minutes</span></div>
-            <div class="countdown-item"><strong id="cd-seconds">36</strong><span>Secondes</span></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-12">
-      <div class="row g-3">
-        <div class="col-12 col-md-4">
-          <div class="capsule-card" style="height:auto; min-height: 140px;">
-            <div class="card-body-cv">
-              <p class="card-category">Date d'ouverture</p>
-              <h3 class="card-title-cv">20 mai 2026</h3>
-            </div>
-          </div>
-        </div>
-        <div class="col-12 col-md-4">
-          <div class="capsule-card" style="height:auto; min-height: 140px;">
-            <div class="card-body-cv">
-              <p class="card-category">Membres</p>
-              <h3 class="card-title-cv">1 participant</h3>
-            </div>
-          </div>
-        </div>
-        <div class="col-12 col-md-4">
-          <div class="capsule-card" style="height:auto; min-height: 140px;">
-            <div class="card-body-cv">
-              <p class="card-category">Contenu</p>
-              <h3 class="card-title-cv">0 message · 0 photo</h3>
-            </div>
+          <div class="row g-3">
+            <div class="col-12 col-md-4"><div class="capsule-card" style="height:auto; min-height: 120px;"><div class="card-body-cv"><p class="card-category">Date d'ouverture</p><h3 class="card-title-cv"> <?php echo h(!empty($capsule['date_ouverture']) ? date('d/m/Y', strtotime((string)$capsule['date_ouverture'])) : 'Non définie'); ?></h3></div></div></div>
+            <div class="col-12 col-md-4"><div class="capsule-card" style="height:auto; min-height: 120px;"><div class="card-body-cv"><p class="card-category">Membres</p><h3 class="card-title-cv"><?php echo $memberCount; ?></h3></div></div></div>
+            <div class="col-12 col-md-4"><div class="capsule-card" style="height:auto; min-height: 120px;"><div class="card-body-cv"><p class="card-category">Contenu</p><h3 class="card-title-cv"><?php echo $messageCount; ?> message(s) · <?php echo $photoCount; ?> photo(s)</h3></div></div></div>
           </div>
         </div>
       </div>
     </div>
 
     <div class="col-12 col-lg-7">
-      <div class="capsule-card" style="height:auto; min-height: 360px;">
+      <div class="capsule-card" style="height:auto;">
         <div class="card-body-cv">
           <h3 class="card-title-cv">Ajouter du contenu</h3>
-          <p class="card-desc" style="-webkit-line-clamp:unset; line-clamp:unset;">Ajoutez un message texte ou une photo avant le scellement definitif.</p>
 
-          <div class="d-flex gap-2 mb-3">
-            <button type="button" class="btn-filter content-tab active" data-content-tab="message">Message</button>
-            <button type="button" class="btn-filter content-tab" data-content-tab="photo">Photo</button>
-          </div>
+          <form method="post" enctype="multipart/form-data">
+            <input type="hidden" name="action" value="add_souvenir" />
+            <input type="hidden" name="capsule_id" value="<?php echo (int)$capsuleId; ?>" />
 
-          <form method="post" enctype="multipart/form-data" id="mediaForm">
-            <input type="hidden" name="action" value="add_content">
-            <input type="hidden" name="content_type" id="contentType" value="message">
-
-            <div id="messageBlock">
-              <label for="future_message" class="form-label-cv">Message pour le futur</label>
-              <textarea id="future_message" name="future_message" class="form-input-cv" placeholder="Ecrire un message pour le futur..."></textarea>
+            <div class="mb-3">
+              <label class="form-label-cv" for="souvenir_type">Type de contenu</label>
+              <select id="souvenir_type" name="souvenir_type" class="form-input-cv">
+                <option value="message">Message</option>
+                <option value="photo">Photo</option>
+              </select>
             </div>
 
-            <div id="photoBlock" style="display:none;">
-              <label for="future_photo" class="form-label-cv">Photo (JPG/PNG/GIF, max 2 MB)</label>
-              <input id="future_photo" name="future_photo" type="file" class="form-input-cv" accept=".jpg,.jpeg,.png,.gif">
+            <div class="mb-3" id="messageBlock">
+              <label class="form-label-cv" for="souvenir_message">Message pour le futur</label>
+              <textarea id="souvenir_message" name="souvenir_message" class="form-input-cv" rows="5" placeholder="Écrire un message pour le futur..."></textarea>
             </div>
 
-            <div class="d-flex justify-content-end mt-3">
-              <button type="submit" class="btn-primary-cv" id="submitMediaBtn">Ajouter le message</button>
+            <div class="mb-3 d-none" id="photoBlock">
+              <label class="form-label-cv" for="souvenir_photo">Photo</label>
+              <input id="souvenir_photo" name="souvenir_photo" type="file" class="form-input-cv" accept=".jpg,.jpeg,.png,.gif" />
+            </div>
+
+            <div class="d-flex justify-content-end">
+              <button type="submit" class="btn-primary-cv" id="souvenirSubmit">Ajouter le message</button>
             </div>
           </form>
         </div>
@@ -318,183 +255,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <div class="col-12 col-lg-5">
-      <div class="capsule-card" style="height:auto; min-height: 360px;">
-        <div class="card-body-cv d-flex justify-content-center text-center">
-          <span class="material-symbols-outlined" style="font-size:50px; color:var(--color-primary);">lock</span>
-          <h3 class="card-title-cv mt-2">Contenu verrouille</h3>
-          <p class="card-desc" style="-webkit-line-clamp:unset; line-clamp:unset;">
-            Tous les messages et photos restent caches jusqu'au 20 mai 2026. Cette capsule agit comme un coffre-fort numerique temporel.
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-12">
-      <div class="capsule-card" style="height:auto; min-height: 280px;">
+      <div class="capsule-card" style="height:auto;">
         <div class="card-body-cv">
           <h3 class="card-title-cv">Gestion des membres</h3>
-          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-            <div>
-              <p class="card-category mb-1">Membre actuel</p>
-              <strong><?php echo h($creatorName); ?></strong>
-            </div>
-          </div>
+          <p class="card-desc">Invitez un utilisateur déjà inscrit à rejoindre cette capsule.</p>
 
-          <form method="post" class="d-flex flex-wrap gap-2 align-items-end">
-            <input type="hidden" name="action" value="invite_member">
-            <div style="flex:1; min-width:260px;">
-              <label for="invite_email" class="form-label-cv">Ajouter un membre</label>
-              <input id="invite_email" name="invite_email" type="email" class="form-input-cv" placeholder="ami@email.com" required>
+          <?php if ($isOwner): ?>
+          <form method="post">
+            <input type="hidden" name="action" value="invite_member" />
+            <input type="hidden" name="capsule_id" value="<?php echo (int)$capsuleId; ?>" />
+
+            <div class="mb-3">
+              <label class="form-label-cv" for="invite_email">Adresse email</label>
+              <input id="invite_email" name="invite_email" type="email" class="form-input-cv" placeholder="ami@email.com" />
             </div>
-            <button type="submit" class="btn-primary-cv">Inviter</button>
+
+            <div class="d-flex justify-content-end">
+              <button type="submit" class="btn-filter">Inviter</button>
+            </div>
           </form>
+          <?php else: ?>
+            <p class="card-desc">Seul le créateur de la capsule peut inviter des membres.</p>
+          <?php endif; ?>
+        </div>
+      </div>
+
+      <div class="capsule-card mt-4" style="height:auto;">
+        <div class="card-body-cv">
+          <h3 class="card-title-cv">Contenu verrouillé</h3>
+          <p class="card-desc">Tous les souvenirs restent accessibles uniquement aux membres autorisés.</p>
         </div>
       </div>
     </div>
+
   </div>
 </section>
 
-<style>
-  .countdown-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.75rem;
-  }
-
-  .countdown-item {
-    background: var(--color-surface-container-low);
-    border: 1px solid var(--color-outline-variant);
-    border-radius: 0.65rem;
-    padding: 0.8rem;
-    text-align: center;
-  }
-
-  .countdown-item strong {
-    display: block;
-    font-size: 1.65rem;
-    line-height: 1;
-    color: var(--color-primary);
-    margin-bottom: 0.25rem;
-  }
-
-  .countdown-item span {
-    font-size: 0.75rem;
-    color: var(--color-on-surface-variant);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .content-tab.active {
-    background: var(--color-secondary-container);
-    color: var(--color-on-secondary-container);
-  }
-
-  @media (max-width: 767.98px) {
-    .countdown-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-</style>
-
 <script>
-  (function () {
-    const countdown = document.getElementById('countdown');
-    if (!countdown) return;
+  const typeSelect = document.getElementById('souvenir_type');
+  const messageBlock = document.getElementById('messageBlock');
+  const photoBlock = document.getElementById('photoBlock');
+  const submitButton = document.getElementById('souvenirSubmit');
 
-    const target = new Date(countdown.dataset.target).getTime();
-    const daysEl = document.getElementById('cd-days');
-    const hoursEl = document.getElementById('cd-hours');
-    const minutesEl = document.getElementById('cd-minutes');
-    const secondsEl = document.getElementById('cd-seconds');
-
-    function updateCountdown() {
-      const now = Date.now();
-      let diff = Math.max(0, target - now);
-
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      diff -= days * 1000 * 60 * 60 * 24;
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      diff -= hours * 1000 * 60 * 60;
-      const minutes = Math.floor(diff / (1000 * 60));
-      diff -= minutes * 1000 * 60;
-      const seconds = Math.floor(diff / 1000);
-
-      daysEl.textContent = String(days);
-      hoursEl.textContent = String(hours);
-      minutesEl.textContent = String(minutes);
-      secondsEl.textContent = String(seconds);
-    }
-
-    updateCountdown();
-    setInterval(updateCountdown, 1000);
-  })();
-
-  (function () {
-    const tabs = document.querySelectorAll('.content-tab');
-    const contentTypeInput = document.getElementById('contentType');
-    const messageBlock = document.getElementById('messageBlock');
-    const photoBlock = document.getElementById('photoBlock');
-    const submitBtn = document.getElementById('submitMediaBtn');
-    const messageInput = document.getElementById('future_message');
-
-    tabs.forEach((tab) => {
-      tab.addEventListener('click', function () {
-        const type = this.getAttribute('data-content-tab');
-
-        tabs.forEach((x) => x.classList.remove('active'));
-        this.classList.add('active');
-
-        contentTypeInput.value = type;
-
-        if (type === 'photo') {
-          messageBlock.style.display = 'none';
-          photoBlock.style.display = '';
-          submitBtn.textContent = 'Ajouter la photo';
-          messageInput.removeAttribute('required');
-        } else {
-          messageBlock.style.display = '';
-          photoBlock.style.display = 'none';
-          submitBtn.textContent = 'Ajouter le message';
-          messageInput.setAttribute('required', 'required');
-        }
-      });
-    });
-
-    document.getElementById('mediaForm')?.addEventListener('submit', function (event) {
-      const type = contentTypeInput.value;
-
-      if (type === 'message') {
-        const val = (messageInput.value || '').trim();
-        if (!val) {
-          event.preventDefault();
-          alert('Veuillez saisir un message pour le futur.');
-          return;
-        }
-      }
-
-      if (type === 'photo') {
-        const photoInput = document.getElementById('future_photo');
-        const file = photoInput.files[0];
-        if (!file) {
-          event.preventDefault();
-          alert('Veuillez selectionner une photo.');
-          return;
-        }
-
-        const allowed = ['image/jpeg', 'image/png', 'image/gif'];
-        if (!allowed.includes(file.type)) {
-          event.preventDefault();
-          alert('Format non supporte. Utilisez JPG, PNG ou GIF.');
-          return;
-        }
-
-        if (file.size > 2 * 1024 * 1024) {
-          event.preventDefault();
-          alert('Photo trop volumineuse (max 2 MB).');
-        }
-      }
-    });
-  })();
+  typeSelect?.addEventListener('change', function () {
+    const isPhoto = this.value === 'photo';
+    messageBlock.classList.toggle('d-none', isPhoto);
+    photoBlock.classList.toggle('d-none', !isPhoto);
+    submitButton.textContent = isPhoto ? 'Ajouter la photo' : 'Ajouter le message';
+  });
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
