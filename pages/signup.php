@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require '../connexion.php';
 
@@ -51,7 +51,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
               ':password' => password_hash($password, PASSWORD_DEFAULT)
             ]);
 
-            header("Location: login.php");
+            // Connexion automatique après inscription
+            $newId = (int) $pdo->lastInsertId();
+            session_regenerate_id(true);
+            $_SESSION['user'] = [
+              'id' => $newId,
+              'name' => $nom,
+              'email' => $email,
+              'role' => 'user'
+            ];
+
+            header("Location: dashboard.php");
             exit();
         }
 

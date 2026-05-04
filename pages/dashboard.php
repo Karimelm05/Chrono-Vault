@@ -1,52 +1,17 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../includes/app.php';
+require_once __DIR__ . '/../connexion.php';
+require_once __DIR__ . '/../includes/fonctions.php';
+include __DIR__ . '/../includes/app-layout.php';
 cv_require_login();
 
+$pageTitle = 'Dashboard';
+$activePage = 'dashboard';
 $user = cv_current_user();
 $userId = (int)($user['id'] ?? 0);
-$createdCapsulesCount = cv_count_user_created_capsules($userId);
-$memberCapsulesCount = cv_count_user_member_capsules($userId);
-$openCapsulesCount = cv_count_user_open_capsules($userId);
-$pendingNotificationsCount = cv_count_pending_notifications($userId);
+
+
 ?>
-<!doctype html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dashboard | ChronoVault</title>
-  <link rel="stylesheet" href="../bootstrap/css/bootstrap.min.css">
-  <link rel="stylesheet" href="../css/variables.css">
-  <link rel="stylesheet" href="../css/style.css">
-</head>
-<body class="cv-shell">
-  <div class="cv-layout">
-    <aside class="cv-sidebar" id="sidebar">
-      <div class="cv-brand">
-        <div class="cv-brand-badge">CV</div>
-        <div>
-          <h1>ChronoVault</h1>
-          <p><?php echo htmlspecialchars($user['name']); ?></p>
-        </div>
-      </div>
-
-      <nav class="cv-nav mb-4">
-        <a class="active" href="dashboard.php">Dashboard <span><?php echo (int)$memberCapsulesCount; ?></span></a>
-        <a href="invitations.php">Invitations <span><?php echo (int)$pendingNotificationsCount; ?></span></a>
-        <a href="capsules.php">Capsules <span><?php echo (int)$createdCapsulesCount; ?></span></a>
-        <a href="../index.php">Accueil <span>↗</span></a>
-      </nav>
-
-      <div class="cv-panel">
-        <div class="cv-panel-inner">
-          <p class="mb-1 fw-bold">Session active</p>
-          <p class="mb-2 cv-muted"><?php echo htmlspecialchars($user['name']); ?>, connecté</p>
-          <a href="logout.php" class="btn btn-sm btn-outline-danger w-100">Déconnexion</a>
-        </div>
-      </div>
-    </aside>
-
-    <main class="cv-main">
       <div class="cv-topbar">
         <div>
           <h2 class="cv-title">Dashboard</h2>
@@ -61,22 +26,22 @@ $pendingNotificationsCount = cv_count_pending_notifications($userId);
       <section class="cv-metrics">
         <article class="cv-metric">
           <span class="label">Capsules totales</span>
-          <span class="value"><?php echo (int)$createdCapsulesCount; ?></span>
+          <span class="value"><?php echo (int)cv_count_user_created_capsules($userId); ?></span>
           <span class="trend">Créées par vous</span>
         </article>
         <article class="cv-metric">
           <span class="label">Ouvertes</span>
-          <span class="value"><?php echo (int)$openCapsulesCount; ?></span>
+          <span class="value"><?php echo (int)cv_count_user_open_capsules($userId); ?></span>
           <span class="trend">Accessibles maintenant</span>
         </article>
         <article class="cv-metric">
           <span class="label">Invitations</span>
-          <span class="value"><?php echo (int)$pendingNotificationsCount; ?></span>
+          <span class="value"><?php echo (int)cv_count_pending_notifications($userId); ?></span>
           <span class="trend">En attente de réponse</span>
         </article>
         <article class="cv-metric">
           <span class="label">Activité</span>
-          <span class="value"><?php echo (int)$memberCapsulesCount; ?></span>
+          <span class="value"><?php echo (int)cv_count_user_member_capsules($userId); ?></span>
           <span class="trend">Capsules accessibles</span>
         </article>
       </section>
@@ -139,11 +104,6 @@ $pendingNotificationsCount = cv_count_pending_notifications($userId);
           </div>
         </div>
       </section>
-    </main>
-  </div>
 
-  <script src="../bootstrap/js/bootstrap.bundle.min.js"></script>
-  <script src="../js/dashboard.js"></script>
-</body>
-</html>
+<?php include __DIR__ . '/../includes/app-layout-footer.php'; ?>
 

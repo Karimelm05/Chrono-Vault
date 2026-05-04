@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/config.php';
 ?>
 <!doctype html>
@@ -75,9 +75,9 @@ require_once __DIR__ . '/config.php';
             </h1>
 
             <p class="hero-text mt-4">
-              Sanctuaire numérique pour vos moments les plus précieux. Archivez
-              aujourd'hui vos émotions et transmettez-les en toute sécurité à
-              l'avenir.
+              Offrez à vos souvenirs un écrin sûr et intemporel. Capturez vos
+              émotions aujourd'hui et retrouvez-les intactes, au moment qui
+              compte vraiment.
             </p>
 
             <div class="d-flex flex-wrap gap-3 mt-5">

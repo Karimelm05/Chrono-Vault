@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require '../connexion.php';
 
@@ -30,16 +30,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         $user = $stmt->fetch();
 
+        // Debug : Afficher les informations retournées
+        if ($user) {
+          // Log pour déboguer
+          error_log("Utilisateur trouvé : " . json_encode(array_keys($user)));
+          error_log("Vérification mot de passe : " . (password_verify($password, $user['mot_de_passe']) ? 'OK' : 'FAIL'));
+        } else {
+          error_log("Aucun utilisateur trouvé pour : " . $email);
+        }
+
         if ($user && password_verify($password, $user['mot_de_passe'])) {
           session_regenerate_id(true);
 
           $_SESSION['user'] = [
-            'id' => $user['id'],
-            'nom' => $user['nom'],
-            'email' => $user['email']
+            'id' => $user['Id_Utilisateur'],
+            'name' => $user['nom'],
+            'email' => $user['email'],
+            'role' => $user['role']
           ];
 
-          header("Location: dashboard.php");
+          // Redirection selon le rôle
+          if ($user['role'] === 'admin') {
+            header("Location: admin.php");
+          } else {
+            header("Location: dashboard.php");
+          }
           exit();
 
         } else {

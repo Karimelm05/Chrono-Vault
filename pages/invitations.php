@@ -1,52 +1,18 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../includes/app.php';
 cv_require_login();
 
+$pageTitle = 'Invitations';
+$activePage = 'invitations';
 $user = cv_current_user();
 $userId = (int)($user['id'] ?? 0);
-$pendingNotificationsCount = cv_count_pending_notifications($userId);
+
+include __DIR__ . '/../includes/app-layout.php';
 ?>
-<!doctype html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Invitations | ChronoVault</title>
-  <link rel="stylesheet" href="../bootstrap/css/bootstrap.min.css">
-  <link rel="stylesheet" href="../css/variables.css">
-</head>
-<body class="cv-shell">
-  <div class="cv-layout">
-    <aside class="cv-sidebar" id="sidebar">
-      <div class="cv-brand">
-        <div class="cv-brand-badge">CV</div>
-        <div>
-          <h1>ChronoVault</h1>
-          <p><?php echo htmlspecialchars($user['name']); ?></p>
-        </div>
-      </div>
-
-      <nav class="cv-nav mb-4">
-        <a href="dashboard.php">Dashboard <span><?php echo (int)cv_count_user_member_capsules($userId); ?></span></a>
-        <a class="active" href="invitations.php">Invitations <span><?php echo (int)$pendingNotificationsCount; ?></span></a>
-        <a href="capsules.php">Capsules <span><?php echo (int)cv_count_user_created_capsules($userId); ?></span></a>
-        <a href="../index.php">Accueil <span>↗</span></a>
-      </nav>
-
-      <div class="cv-panel">
-        <div class="cv-panel-inner">
-          <p class="mb-1 fw-bold">Session active</p>
-          <p class="mb-2 cv-muted"><?php echo htmlspecialchars($user['name']); ?>, connecté</p>
-          <a href="logout.php" class="btn btn-sm btn-outline-danger w-100">Déconnexion</a>
-        </div>
-      </div>
-    </aside>
-
-    <main class="cv-main">
       <div class="cv-topbar">
         <div>
           <h2 class="cv-title">Invitations</h2>
-          <p class="cv-subtitle">Répondre, relancer et suivre les invitations en attente. <?php echo (int)$pendingNotificationsCount; ?> notification(s) à traiter.</p>
+          <p class="cv-subtitle">Répondre, relancer et suivre les invitations en attente. <?php echo (int)cv_count_pending_notifications($userId); ?> notification(s) à traiter.</p>
         </div>
         <div class="cv-actions">
           <button class="cv-btn cv-btn-secondary d-lg-none" id="toggleSidebar" type="button">Menu</button>
@@ -137,11 +103,6 @@ $pendingNotificationsCount = cv_count_pending_notifications($userId);
           </div>
         </div>
       </section>
-    </main>
-  </div>
 
-  <script src="../bootstrap/js/bootstrap.bundle.min.js"></script>
-  <script src="../js/invitations.js"></script>
-</body>
-</html>
+<?php include __DIR__ . '/../includes/app-layout-footer.php'; ?>
 
