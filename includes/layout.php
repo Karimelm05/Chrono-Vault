@@ -17,6 +17,14 @@ $sidebarUserAvatarAlt = $sidebarUserName;
 if ($sidebarUserEmail !== '') {
   $sidebarUserAvatarAlt .= ' (' . $sidebarUserEmail . ')';
 }
+
+$sidebarUserId = (int)($_SESSION['user']['id'] ?? 0);
+$sidebarCreatedCapsulesCount = function_exists('cv_count_user_created_capsules') ? cv_count_user_created_capsules($sidebarUserId) : 0;
+$sidebarMemberCapsulesCount = function_exists('cv_count_user_member_capsules') ? cv_count_user_member_capsules($sidebarUserId) : 0;
+$sidebarOpenCapsulesCount = function_exists('cv_count_user_open_capsules') ? cv_count_user_open_capsules($sidebarUserId) : 0;
+$sidebarPendingNotificationsCount = function_exists('cv_count_pending_notifications') ? cv_count_pending_notifications($sidebarUserId) : 0;
+$sidebarPendingNotifications = function_exists('cv_get_pending_notifications') ? cv_get_pending_notifications($sidebarUserId, 5) : [];
+$sidebarIsAdmin = function_exists('cv_is_admin') ? cv_is_admin() : false;
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -115,6 +123,171 @@ if ($sidebarUserEmail !== '') {
     }
     .nav-link-item.active .material-symbols-outlined {
       font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+    }
+    .sidebar-quick-tools {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.1rem 0.35rem 0.9rem;
+      margin-bottom: 0.35rem;
+    }
+    .sidebar-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.45rem;
+      flex: 1;
+    }
+    .sidebar-stat {
+      background: var(--color-surface-container);
+      border: 1px solid var(--color-outline-variant);
+      border-radius: 0.8rem;
+      padding: 0.55rem 0.45rem;
+      min-width: 0;
+    }
+    .sidebar-stat-value {
+      display: block;
+      font-weight: 800;
+      font-size: 0.95rem;
+      line-height: 1;
+      color: var(--color-on-surface);
+    }
+    .sidebar-stat-label {
+      display: block;
+      margin-top: 0.2rem;
+      font-size: 0.64rem;
+      line-height: 1.1;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--color-on-surface-variant);
+    }
+    .notification-trigger {
+      position: relative;
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      border: 1px solid var(--color-outline-variant);
+      background: var(--color-surface-container);
+      color: var(--color-on-surface);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+    .notification-trigger:hover {
+      background: var(--color-secondary-container);
+      transform: translateY(-1px);
+    }
+    .notification-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 999px;
+      background: var(--color-primary);
+      color: #fff;
+      font-size: 0.68rem;
+      font-weight: 700;
+      line-height: 18px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+    }
+    .notification-badge.is-hidden {
+      display: none;
+    }
+    .notification-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.18);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease;
+      z-index: 1100;
+    }
+    .notification-backdrop.is-open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .notification-panel {
+      position: fixed;
+      top: 1.2rem;
+      left: 272px;
+      width: min(360px, calc(100vw - 2rem));
+      max-height: calc(100vh - 2.4rem);
+      overflow: auto;
+      background: rgba(255, 255, 255, 0.98);
+      border: 1px solid var(--color-outline-variant);
+      border-radius: 1rem;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.18);
+      padding: 0.95rem;
+      z-index: 1110;
+      opacity: 0;
+      transform: translateY(-8px) scale(0.98);
+      pointer-events: none;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      backdrop-filter: blur(16px);
+    }
+    .notification-panel.is-open {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+    .notification-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.85rem;
+    }
+    .notification-panel-title {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .notification-panel-subtitle {
+      margin: 0.15rem 0 0;
+      font-size: 0.82rem;
+      color: var(--color-on-surface-variant);
+    }
+    .notification-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+    .notification-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      padding: 0.85rem 0.9rem;
+      border-radius: 0.9rem;
+      background: var(--color-surface-container);
+      border: 1px solid var(--color-outline-variant);
+      text-decoration: none;
+      color: inherit;
+    }
+    .notification-item:hover {
+      color: inherit;
+      border-color: var(--color-primary);
+    }
+    .notification-item-title {
+      font-weight: 700;
+      font-size: 0.92rem;
+    }
+    .notification-item-meta {
+      font-size: 0.8rem;
+      color: var(--color-on-surface-variant);
+    }
+    .notification-empty {
+      padding: 1.1rem;
+      text-align: center;
+      color: var(--color-on-surface-variant);
+      background: var(--color-surface-container);
+      border: 1px dashed var(--color-outline-variant);
+      border-radius: 0.9rem;
     }
     .sidebar-divider {
       border-top: 1px solid var(--color-outline-variant);
@@ -858,8 +1031,74 @@ if ($sidebarUserEmail !== '') {
 
   <aside id="sidebar">
     <div class="mb-4 px-2">
-      <div class="brand-name">ChronoVault</div>
-      <div class="brand-sub">The Timeless Curator</div>
+      <div class="d-flex align-items-start justify-content-between gap-2">
+        <div>
+          <div class="brand-name">ChronoVault</div>
+          <div class="brand-sub">The Timeless Curator</div>
+        </div>
+        <button
+          id="notificationToggle"
+          type="button"
+          class="notification-trigger"
+          aria-label="Ouvrir les notifications"
+          aria-expanded="false"
+          aria-controls="notificationPanel">
+          <span class="material-symbols-outlined">notifications</span>
+          <span class="notification-badge<?php echo $sidebarPendingNotificationsCount === 0 ? ' is-hidden' : ''; ?>">
+            <?php echo (int)$sidebarPendingNotificationsCount; ?>
+          </span>
+        </button>
+      </div>
+      <div class="sidebar-quick-tools">
+        <div class="sidebar-stats">
+          <div class="sidebar-stat">
+            <span class="sidebar-stat-value"><?php echo (int)$sidebarCreatedCapsulesCount; ?></span>
+            <span class="sidebar-stat-label">Créées</span>
+          </div>
+          <div class="sidebar-stat">
+            <span class="sidebar-stat-value"><?php echo (int)$sidebarMemberCapsulesCount; ?></span>
+            <span class="sidebar-stat-label">Membre</span>
+          </div>
+          <div class="sidebar-stat">
+            <span class="sidebar-stat-value"><?php echo (int)$sidebarOpenCapsulesCount; ?></span>
+            <span class="sidebar-stat-label">Ouvertes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="notificationBackdrop" class="notification-backdrop" hidden></div>
+    <div id="notificationPanel" class="notification-panel" aria-hidden="true">
+      <div class="notification-panel-header">
+        <div>
+          <h3 class="notification-panel-title">Notifications</h3>
+          <p class="notification-panel-subtitle"><?php echo (int)$sidebarPendingNotificationsCount; ?> en attente</p>
+        </div>
+        <a class="nav-link-item p-0 m-0" href="invitations.php" style="background: transparent; transform: none; gap: 0.35rem; padding: 0.35rem 0.4rem;">
+          <span class="material-symbols-outlined">open_in_new</span>
+          <span>Voir tout</span>
+        </a>
+      </div>
+
+      <div class="notification-list">
+        <?php if (!$sidebarPendingNotifications): ?>
+          <div class="notification-empty">Aucune notification en attente.</div>
+        <?php else: ?>
+          <?php foreach ($sidebarPendingNotifications as $notification): ?>
+            <?php
+              $notificationTime = !empty($notification['date_envoi']) ? date('d/m/Y H:i', strtotime((string)$notification['date_envoi'])) : 'Date inconnue';
+              $creatorName = trim((string)($notification['creator_nom'] ?? 'Un utilisateur'));
+              $capsuleTitle = trim((string)($notification['capsule_titre'] ?? 'Capsule'));
+            ?>
+            <a class="notification-item" href="capsule.php?id=<?php echo (int)$notification['Id_Capsule']; ?>">
+              <div class="notification-item-title"><?php echo h($capsuleTitle); ?></div>
+              <div class="notification-item-meta">
+                <?php echo h($creatorName); ?> vous a invité le <?php echo h($notificationTime); ?>
+              </div>
+            </a>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      </div>
     </div>
 
     <nav class="flex-grow-1 d-flex flex-column gap-1">
@@ -879,6 +1118,12 @@ if ($sidebarUserEmail !== '') {
         <span class="material-symbols-outlined">notifications</span>
         <span>Notifications</span>
       </a>
+      <?php if ($sidebarIsAdmin): ?>
+      <a href="admin.php" class="nav-link-item <?php echo $activePage === 'admin' ? 'active' : ''; ?>">
+        <span class="material-symbols-outlined">admin_panel_settings</span>
+        <span>Admin</span>
+      </a>
+      <?php endif; ?>
       <a href="parametre.php" class="nav-link-item <?php echo $activePage === 'parametre' ? 'active' : ''; ?>">
         <span class="material-symbols-outlined">settings</span>
         <span>Paramètres</span>
@@ -903,6 +1148,51 @@ if ($sidebarUserEmail !== '') {
       </div>
     </div>
   </aside>
+
+  <script>
+    (function () {
+      const toggle = document.getElementById('notificationToggle');
+      const panel = document.getElementById('notificationPanel');
+      const backdrop = document.getElementById('notificationBackdrop');
+
+      if (!toggle || !panel || !backdrop) {
+        return;
+      }
+
+      const closePanel = () => {
+        panel.classList.remove('is-open');
+        backdrop.classList.remove('is-open');
+        backdrop.hidden = true;
+        panel.setAttribute('aria-hidden', 'true');
+        toggle.setAttribute('aria-expanded', 'false');
+      };
+
+      const openPanel = () => {
+        panel.classList.add('is-open');
+        backdrop.hidden = false;
+        requestAnimationFrame(() => backdrop.classList.add('is-open'));
+        panel.setAttribute('aria-hidden', 'false');
+        toggle.setAttribute('aria-expanded', 'true');
+      };
+
+      toggle.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (panel.classList.contains('is-open')) {
+          closePanel();
+        } else {
+          openPanel();
+        }
+      });
+
+      backdrop.addEventListener('click', closePanel);
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          closePanel();
+        }
+      });
+    }());
+  </script>
 
   <main id="main">
     <div class="main-content">

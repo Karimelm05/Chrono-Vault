@@ -1,5 +1,10 @@
 ﻿<?php
-require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../includes/app.php';
+cv_require_login();
+
+$user = cv_current_user();
+$userId = (int)($user['id'] ?? 0);
+$pendingNotificationsCount = cv_count_pending_notifications($userId);
 ?>
 <!doctype html>
 <html lang="fr">
@@ -17,21 +22,22 @@ require_once __DIR__ . '/../config.php';
         <div class="cv-brand-badge">CV</div>
         <div>
           <h1>ChronoVault</h1>
-          <p>Invitations</p>
+          <p><?php echo htmlspecialchars($user['name']); ?></p>
         </div>
       </div>
 
       <nav class="cv-nav mb-4">
-        <a href="dashboard.php">Dashboard <span>8</span></a>
-        <a class="active" href="invitations.php">Invitations <span>3</span></a>
-        <a href="capsules.html">Capsules <span>12</span></a>
+        <a href="dashboard.php">Dashboard <span><?php echo (int)cv_count_user_member_capsules($userId); ?></span></a>
+        <a class="active" href="invitations.php">Invitations <span><?php echo (int)$pendingNotificationsCount; ?></span></a>
+        <a href="capsules.php">Capsules <span><?php echo (int)cv_count_user_created_capsules($userId); ?></span></a>
         <a href="../index.php">Accueil <span>↗</span></a>
       </nav>
 
       <div class="cv-panel">
         <div class="cv-panel-inner">
-          <p class="mb-1 fw-bold">Suivi rapide</p>
-          <p class="mb-0 cv-muted">Répondre, relancer et archiver les demandes.</p>
+          <p class="mb-1 fw-bold">Session active</p>
+          <p class="mb-2 cv-muted"><?php echo htmlspecialchars($user['name']); ?>, connecté</p>
+          <a href="logout.php" class="btn btn-sm btn-outline-danger w-100">Déconnexion</a>
         </div>
       </div>
     </aside>
@@ -40,7 +46,7 @@ require_once __DIR__ . '/../config.php';
       <div class="cv-topbar">
         <div>
           <h2 class="cv-title">Invitations</h2>
-          <p class="cv-subtitle">Répondre, relancer et suivre les invitations en attente.</p>
+          <p class="cv-subtitle">Répondre, relancer et suivre les invitations en attente. <?php echo (int)$pendingNotificationsCount; ?> notification(s) à traiter.</p>
         </div>
         <div class="cv-actions">
           <button class="cv-btn cv-btn-secondary d-lg-none" id="toggleSidebar" type="button">Menu</button>
@@ -126,7 +132,7 @@ require_once __DIR__ . '/../config.php';
           <div class="cv-card-body">
             <div class="cv-actions">
               <a class="cv-btn cv-btn-primary text-decoration-none" href="dashboard.php">Retour dashboard</a>
-              <a class="cv-btn cv-btn-secondary text-decoration-none" href="capsules.html">Aller aux capsules</a>
+              <a class="cv-btn cv-btn-secondary text-decoration-none" href="capsules.php">Aller aux capsules</a>
             </div>
           </div>
         </div>

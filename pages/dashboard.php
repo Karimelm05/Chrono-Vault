@@ -1,14 +1,13 @@
 ﻿<?php
-session_start();
-require_once __DIR__ . '/../connexion.php';
+require_once __DIR__ . '/../includes/app.php';
+cv_require_login();
 
-// Vérifier si l'utilisateur est connecté
-if (empty($_SESSION['user'])) {
-  header("Location: login.php");
-  exit();
-}
-
-$user = $_SESSION['user'];
+$user = cv_current_user();
+$userId = (int)($user['id'] ?? 0);
+$createdCapsulesCount = cv_count_user_created_capsules($userId);
+$memberCapsulesCount = cv_count_user_member_capsules($userId);
+$openCapsulesCount = cv_count_user_open_capsules($userId);
+$pendingNotificationsCount = cv_count_pending_notifications($userId);
 ?>
 <!doctype html>
 <html lang="fr">
@@ -27,22 +26,22 @@ $user = $_SESSION['user'];
         <div class="cv-brand-badge">CV</div>
         <div>
           <h1>ChronoVault</h1>
-          <p><?php echo htmlspecialchars($user['nom']); ?></p>
+          <p><?php echo htmlspecialchars($user['name']); ?></p>
         </div>
       </div>
 
       <nav class="cv-nav mb-4">
-        <a class="active" href="dashboard.php">Dashboard <span>8</span></a>
-        <a href="invitations.php">Invitations <span>3</span></a>
-        <a href="capsules.html">Capsules <span>12</span></a>
+        <a class="active" href="dashboard.php">Dashboard <span><?php echo (int)$memberCapsulesCount; ?></span></a>
+        <a href="invitations.php">Invitations <span><?php echo (int)$pendingNotificationsCount; ?></span></a>
+        <a href="capsules.php">Capsules <span><?php echo (int)$createdCapsulesCount; ?></span></a>
         <a href="../index.php">Accueil <span>↗</span></a>
       </nav>
 
       <div class="cv-panel">
         <div class="cv-panel-inner">
           <p class="mb-1 fw-bold">Session active</p>
-          <p class="mb-2 cv-muted"><?php echo htmlspecialchars($user['nom']); ?>, connecté</p>
-          <a href="../includes/logout.php" class="btn btn-sm btn-outline-danger w-100">Déconnexion</a>
+          <p class="mb-2 cv-muted"><?php echo htmlspecialchars($user['name']); ?>, connecté</p>
+          <a href="logout.php" class="btn btn-sm btn-outline-danger w-100">Déconnexion</a>
         </div>
       </div>
     </aside>
@@ -62,23 +61,23 @@ $user = $_SESSION['user'];
       <section class="cv-metrics">
         <article class="cv-metric">
           <span class="label">Capsules totales</span>
-          <span class="value">24</span>
-          <span class="trend">+4 ce mois-ci</span>
+          <span class="value"><?php echo (int)$createdCapsulesCount; ?></span>
+          <span class="trend">Créées par vous</span>
         </article>
         <article class="cv-metric">
           <span class="label">Ouvertes</span>
-          <span class="value">9</span>
-          <span class="trend">+2 aujourd’hui</span>
+          <span class="value"><?php echo (int)$openCapsulesCount; ?></span>
+          <span class="trend">Accessibles maintenant</span>
         </article>
         <article class="cv-metric">
           <span class="label">Invitations</span>
-          <span class="value">7</span>
-          <span class="trend">3 en attente</span>
+          <span class="value"><?php echo (int)$pendingNotificationsCount; ?></span>
+          <span class="trend">En attente de réponse</span>
         </article>
         <article class="cv-metric">
           <span class="label">Activité</span>
-          <span class="value">86%</span>
-          <span class="trend">Stable</span>
+          <span class="value"><?php echo (int)$memberCapsulesCount; ?></span>
+          <span class="trend">Capsules accessibles</span>
         </article>
       </section>
 

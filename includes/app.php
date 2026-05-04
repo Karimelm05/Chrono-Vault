@@ -20,6 +20,24 @@ function cv_require_login(): void
     }
 }
 
+function cv_is_admin(?array $user = null): bool
+{
+    $user = $user ?? cv_current_user();
+
+    return strtolower((string)($user['role'] ?? '')) === 'admin';
+}
+
+function cv_require_admin(): void
+{
+    cv_require_login();
+
+    if (!cv_is_admin()) {
+        http_response_code(403);
+        echo 'Accès interdit.';
+        exit();
+    }
+}
+
 function cv_redirect_if_logged_in(string $target = 'dashboard.php'): void
 {
     if (cv_current_user()) {

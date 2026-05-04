@@ -11,10 +11,15 @@ if (!empty($_SESSION['user'])) {
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
-    $email = trim($_POST['email']);
-    $password = trim($_POST['password']);
 
-    if (!empty($email) && !empty($password)) {
+    $email = trim($_POST['email'] ?? '');
+    $password = trim($_POST['password'] ?? '');
+
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+      $error = "Email invalide";
+    }
+
+    if (!empty($email) && !empty($password) && empty($error)) {
 
         $sql = "SELECT * FROM utilisateur WHERE email = :email";
         $stmt = $pdo->prepare($sql);
@@ -25,18 +30,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         $user = $stmt->fetch();
 
-        if ($user && $user['mot_de_passe'] === $password) {
-
+        if ($user && password_verify($password, $user['mot_de_passe'])) {
           session_regenerate_id(true);
 
-            $_SESSION['user'] = [
-                'id' => $user['id'],
-                'nom' => $user['nom'],
-                'email' => $user['email']
-            ];
+          $_SESSION['user'] = [
+            'id' => $user['id'],
+            'nom' => $user['nom'],
+            'email' => $user['email']
+          ];
 
-            header("Location: dashboard.php");
-            exit();
+          header("Location: dashboard.php");
+          exit();
 
         } else {
           $error = "Email ou mot de passe invalide";

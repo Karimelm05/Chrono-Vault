@@ -1,14 +1,25 @@
 ﻿<?php
+session_start();
 require '../connexion.php';
+
+// Rediriger les utilisateurs déjà connectés
+if (!empty($_SESSION['user'])) {
+  header("Location: dashboard.php");
+  exit();
+}
 
 $error = "";
 $success = "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
-    $nom = trim($_POST['username']);
-    $email = trim($_POST['email']);
-    $password = trim($_POST['password']);
+  $nom = strip_tags(trim($_POST['username'] ?? ''));
+  $email = trim($_POST['email'] ?? '');
+  $password = trim($_POST['password'] ?? '');
+
+  if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    $error = "Email invalide";
+  }
 
     if (!empty($nom) && !empty($email) && !empty($password)) {
 
@@ -35,9 +46,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $insertStmt = $pdo->prepare($insertSql);
 
             $insertStmt->execute([
-                ':nom' => $nom,
-                ':email' => $email,
-                ':password' => $password
+              ':nom' => $nom,
+              ':email' => $email,
+              ':password' => password_hash($password, PASSWORD_DEFAULT)
             ]);
 
             header("Location: login.php");
@@ -107,7 +118,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
           <div class="mb-3 text-start">
             <label class="form-label small text-muted">Mot de passe</label>
-         <input type="password" name="password" class="form-control" placeholder="••••••••" required />
+            <div class="input-group">
+              <input type="password" name="password" id="password" class="form-control" placeholder="••••••••" required />
+              <button type="button" class="btn btn-outline-secondary" id="togglePassword" aria-label="Afficher le mot de passe">
+                Afficher
+              </button>
+            </div>
           </div>
 
           <div class="d-grid mt-4">
@@ -140,6 +156,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../js/main.js"></script>
+    <script>
+      const passwordInput = document.getElementById('password');
+      const togglePasswordButton = document.getElementById('togglePassword');
+
+      if (passwordInput && togglePasswordButton) {
+        togglePasswordButton.addEventListener('click', () => {
+          const isPassword = passwordInput.type === 'password';
+          passwordInput.type = isPassword ? 'text' : 'password';
+          togglePasswordButton.textContent = isPassword ? 'Masquer' : 'Afficher';
+          togglePasswordButton.setAttribute(
+            'aria-label',
+            isPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'
+          );
+        });
+      }
+    </script>
 
   </body>
 </html>
