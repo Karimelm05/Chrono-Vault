@@ -6,7 +6,7 @@ define('APP_ENV', 'local');
 
 // Parametres de connexion a la base de donnees.
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'projet_db');
+define('DB_NAME', 'chrono_vault');
 define('DB_USER', 'root');
 define('DB_PASS', '');
 

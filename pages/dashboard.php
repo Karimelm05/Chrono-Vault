@@ -1,5 +1,14 @@
 ﻿<?php
-require_once __DIR__ . '/../config.php';
+session_start();
+require_once __DIR__ . '/../connexion.php';
+
+// Vérifier si l'utilisateur est connecté
+if (empty($_SESSION['user'])) {
+  header("Location: login.php");
+  exit();
+}
+
+$user = $_SESSION['user'];
 ?>
 <!doctype html>
 <html lang="fr">
@@ -9,6 +18,7 @@ require_once __DIR__ . '/../config.php';
   <title>Dashboard | ChronoVault</title>
   <link rel="stylesheet" href="../bootstrap/css/bootstrap.min.css">
   <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/style.css">
 </head>
 <body class="cv-shell">
   <div class="cv-layout">
@@ -17,7 +27,7 @@ require_once __DIR__ . '/../config.php';
         <div class="cv-brand-badge">CV</div>
         <div>
           <h1>ChronoVault</h1>
-          <p>Member C</p>
+          <p><?php echo htmlspecialchars($user['nom']); ?></p>
         </div>
       </div>
 
@@ -31,7 +41,8 @@ require_once __DIR__ . '/../config.php';
       <div class="cv-panel">
         <div class="cv-panel-inner">
           <p class="mb-1 fw-bold">Session active</p>
-          <p class="mb-0 cv-muted">Admin demo, connecté</p>
+          <p class="mb-2 cv-muted"><?php echo htmlspecialchars($user['nom']); ?>, connecté</p>
+          <a href="../includes/logout.php" class="btn btn-sm btn-outline-danger w-100">Déconnexion</a>
         </div>
       </div>
     </aside>
