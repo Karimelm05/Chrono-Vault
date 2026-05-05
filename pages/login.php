@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           </p>
         <?php endif; ?>
 
-        <form method="POST">
+        <form method="POST" id="login-form">
 
           <div class="mb-4 text-start">
             <label class="form-label small text-muted">E-mail</label>
@@ -98,22 +98,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
           <div class="mb-3 text-start">
             <div class="d-flex justify-content-between">
-              <label class="form-label small text-muted">
-                Mot de passe
-              </label>
-
-              <a href="#" style="font-size: 10px; color: var(--muted)">
-                Mot de passe oublié ?
-              </a>
+              <label class="form-label small text-muted">Mot de passe</label>
+              <a href="#" style="font-size: 10px; color: var(--muted)">Mot de passe oublié ?</a>
             </div>
 
-            <input
-              type="password"
-              name="password"
-              class="form-control"
-              placeholder="••••••••"
-              required
-            />
+            <div class="input-group">
+              <input
+                type="password"
+                name="password"
+                id="login-password"
+                class="form-control"
+                placeholder="••••••••"
+                required
+                autocomplete="current-password"
+              />
+              <button class="btn btn-outline-secondary" type="button" id="pw-toggle-login" aria-label="Afficher/masquer le mot de passe">👁️</button>
+            </div>
+          </div>
+
+          <div class="form-check text-start mb-3">
+            <input class="form-check-input" type="checkbox" value="1" id="remember" name="remember">
+            <label class="form-check-label small text-muted" for="remember">Se souvenir de moi</label>
           </div>
 
           <div class="d-grid mt-4">
@@ -146,6 +151,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      (function(){
+        const toggle = document.getElementById('pw-toggle-login');
+        const pw = document.getElementById('login-password');
+        if (toggle && pw) {
+          toggle.addEventListener('click', function(){
+            pw.type = pw.type === 'password' ? 'text' : 'password';
+            toggle.textContent = pw.type === 'password' ? '👁️' : '🙈';
+          });
+        }
+
+        const form = document.getElementById('login-form');
+        if (form) {
+          form.addEventListener('submit', function(e){
+            const email = form.querySelector('input[name=email]');
+            if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.value)) {
+              e.preventDefault();
+              alert('Veuillez entrer une adresse e-mail valide.');
+              email.focus();
+            }
+          });
+        }
+      })();
+    </script>
 
   </body>
 </html>
