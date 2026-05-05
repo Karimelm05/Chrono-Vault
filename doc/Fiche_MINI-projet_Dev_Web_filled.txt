@@ -1,0 +1,93 @@
+FICHE MINI-PROJET - DÉVELOPPEMENT WEB
+
+Titre du projet : ChronoVault — Capsule temporelle numérique
+
+Équipe / Auteurs :
+- Nom de l'équipe : ENSIASD (démo)
+- Auteur principal : [À compléter par l'étudiant]
+- Membres : [À compléter]
+
+Enseignant référent : [Nom du professeur]
+Promotion / Année : [À compléter]
+Date de rendu : [À compléter]
+
+Résumé du projet :
+ChronoVault est une application web PHP/MySQL permettant de créer et gérer des capsules temporelles.
+L'utilisateur peut préparer des souvenirs (texte, images), inviter d'autres utilisateurs à consulter ou
+contribuer à une capsule, et définir une date d'ouverture future à laquelle le contenu devient
+accessible. L'objectif est d'illustrer la gestion d'utilisateurs, le contrôle d'accès, l'upload de fichiers
+et la persistance des données.
+
+Objectifs pédagogiques :
+- Mettre en pratique PHP et l'accès aux bases de données (PDO).
+- Gérer les sessions, l'authentification et les rôles (user / admin).
+- Implémenter l'upload et la gestion sécurisée de fichiers images.
+- Concevoir et interroger une base de données relationnelle.
+
+Fonctionnalités développées :
+- Inscription / Connexion des utilisateurs
+- Tableau de bord personnalisé
+- Création, modification et suppression de capsules
+- Ajout de souvenirs (texte, photos) associés à une capsule
+- Invitations d'utilisateurs à une capsule (statuts : pending, accepted)
+- Gestion des droits : propriétaire, invité, administrateur
+- Zone d'administration pour gérer les utilisateurs
+- Upload sécurisé des images (validation MIME, stockage dans uploads/)
+
+Architecture / Fichiers clés :
+- `index.php` : page d'accueil
+- `connexion.php` : configuration et connexion PDO à la base
+- `projet.sql` : script SQL pour créer la base `chrono_vault` et les tables
+- `includes/` : `app.php`, `fonctions.php` (fonctions utilitaires, gestion sessions)
+- `pages/` : logique des pages (login, signup, dashboard, capsules...)
+- `css/`, `bootstrap/`, `js/` : assets front-end
+- `images/`, `uploads/` : images publiques et fichiers uploadés
+
+Base de données :
+Nom : `chrono_vault`
+Tables principales : `utilisateur`, `capsule`, `invitation`, `souvenir`
+Le fichier `projet.sql` inclus initialise la structure et crée un compte administrateur de démonstration.
+
+Compte administrateur de démonstration :
+- Email : ENSIASD@edu.uiz.ac.ma
+- Mot de passe : ENSIASD2026
+
+Environnement de développement / Exécution locale :
+- Serveur local recommandé : XAMPP / WAMP / Laragon
+- PHP 7.4+ (tests sur PHP 8 compatibles)
+- Importer `projet.sql` via phpMyAdmin ou CLI
+- Vérifier `connexion.php` (hôte, nom BD, user, mot de passe)
+- Placer le dossier du projet dans `htdocs` (XAMPP) et ouvrir `index.php`
+
+Déploiement (résumé pour InfinityFree) :
+1. Créer un compte InfinityFree et une base MySQL via le panneau.
+2. Importer `projet.sql` dans la base distante (phpMyAdmin fourni par l'hébergeur).
+3. Mettre à jour `connexion.php` avec les identifiants fournis.
+4. Uploader tous les fichiers du projet dans `public_html` ou l'équivalent.
+5. Vérifier les permissions pour `uploads/` et tester la connexion.
+
+Tests et comptes de vérification :
+- Utiliser le compte administrateur fourni pour tester les fonctions d'administration.
+- Créer des comptes utilisateurs de test via la page d'inscription.
+
+Sécurité & remarques :
+- Les mots de passe doivent être stockés en hash (le projet utilise `password_hash`/`password_verify`).
+- Validation MIME sur les uploads et vérification `is_uploaded_file` implémentées.
+- Sur InfinityFree, vérifier les limites d'upload et adapter les tailles max si nécessaire.
+
+Points à compléter manuellement (par l'équipe) :
+- Nom et prénoms des membres
+- Nom de l'enseignant référent
+- Date de rendu
+- Éventuelles captures d'écran à joindre
+
+Support / Contact :
+- Voir le dossier `doc/` pour le README et la fiche remplie.
+- Pour intégration directe dans le .docx, copier-coller ce contenu dans le modèle Word et sauvegarder.
+
+---
+Remarques : je peux :
+- générer un fichier Word (.docx) rempli automatiquement et le déposer dans `doc/` (voulez-vous cela ?),
+- ou bien vous fournir ce texte au format Word/PDF si vous préférez que je le convertisse.
+
+Indiquez votre choix et j'exécute l'étape suivante.
