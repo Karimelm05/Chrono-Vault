@@ -78,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <h2 class="auth-brand-title">ChronoVault</h2>
         <p class="auth-subtitle mb-4">Créer votre compte</p>
 
-        <form method="POST">
+        <form method="POST" id="signup-form">
           <div class="mb-3 text-start">
             <label class="form-label small text-muted">Nom</label>
        <input type="text" name="name" class="form-control" placeholder="Votre nom complet" required />
@@ -91,7 +91,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
           <div class="mb-3 text-start">
             <label class="form-label small text-muted">Mot de passe</label>
-         <input type="password" name="password" class="form-control" placeholder="••••••••" required />
+         <input type="password" name="password" id="signup-password" class="form-control" placeholder="••••••••" required aria-describedby="pwHelp" />
+
+            <div id="password-strength" class="mt-2" style="display:none;">
+              <div class="progress" style="height:8px;">
+                <div id="password-strength-bar" class="progress-bar" role="progressbar" style="width:0%"></div>
+              </div>
+              <div id="password-strength-text" class="small text-muted mt-1">Force du mot de passe</div>
+              <ul id="password-requirements" class="small mt-2 mb-0 text-start" style="list-style:none; padding-left:0;">
+                <li id="pr-length">• 8 caractères minimum</li>
+                <li id="pr-lower">• Lettre minuscule</li>
+                <li id="pr-upper">• Lettre majuscule</li>
+                <li id="pr-digit">• Chiffre</li>
+                <li id="pr-special">• Caractère spécial (ex: !@#$%)</li>
+              </ul>
+            </div>
           </div>
 
           <div class="d-grid mt-4">
@@ -124,6 +138,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../js/main.js"></script>
+    <script>
+      (function () {
+        const pw = document.getElementById('signup-password');
+        const bar = document.getElementById('password-strength-bar');
+        const text = document.getElementById('password-strength-text');
+        const box = document.getElementById('password-strength');
+        const reqs = {
+          length: document.getElementById('pr-length'),
+          lower: document.getElementById('pr-lower'),
+          upper: document.getElementById('pr-upper'),
+          digit: document.getElementById('pr-digit'),
+          special: document.getElementById('pr-special')
+        };
+
+        function scorePassword(s) {
+          let score = 0;
+          const checks = {
+            length: s.length >= 8,
+            lower: /[a-z]/.test(s),
+            upper: /[A-Z]/.test(s),
+            digit: /[0-9]/.test(s),
+            special: /[^A-Za-z0-9]/.test(s)
+          };
+          for (const k in checks) if (checks[k]) score++;
+          return { score, checks };
+        }
+
+        function updateUI() {
+          const v = pw.value || '';
+          if (v === '') { box.style.display = 'none'; bar.style.width = '0%'; text.textContent = 'Force du mot de passe'; return; }
+          box.style.display = 'block';
+          const { score, checks } = scorePassword(v);
+          const pct = (score / 5) * 100;
+          bar.style.width = pct + '%';
+          if (score <= 2) { bar.className = 'progress-bar bg-danger'; text.textContent = 'Faible'; }
+          else if (score === 3) { bar.className = 'progress-bar bg-warning'; text.textContent = 'Moyen'; }
+          else { bar.className = 'progress-bar bg-success'; text.textContent = 'Fort'; }
+
+          reqs.length.style.color = checks.length ? 'green' : '';
+          reqs.lower.style.color = checks.lower ? 'green' : '';
+          reqs.upper.style.color = checks.upper ? 'green' : '';
+          reqs.digit.style.color = checks.digit ? 'green' : '';
+          reqs.special.style.color = checks.special ? 'green' : '';
+        }
+
+        if (pw) {
+          pw.addEventListener('input', updateUI);
+          const form = document.getElementById('signup-form');
+          form.addEventListener('submit', function (ev) {
+            const { score, checks } = scorePassword(pw.value || '');
+            // require at least 4/5 checks (length + 3 others) to allow
+            if (score < 4) {
+              ev.preventDefault();
+              updateUI();
+              alert('Votre mot de passe est trop faible. Respectez au moins 4 des critères affichés.');
+              pw.focus();
+            }
+          });
+        }
+      })();
+    </script>
 
   </body>
 </html>

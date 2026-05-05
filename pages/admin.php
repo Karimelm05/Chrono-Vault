@@ -120,8 +120,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($currentDate === false) {
           cv_flash_set('danger', 'Capsule introuvable.');
         } else {
-          $isCurrentlyOpen = !empty($currentDate) && strtotime((string)$currentDate) <= time();
-          $newDate = $isCurrentlyOpen ? null : cv_now();
+          $hasDate = !empty($currentDate);
+          $isCurrentlyOpen = $hasDate && strtotime((string)$currentDate) <= time();
+
+          if ($isCurrentlyOpen) {
+            // currently open -> lock (clear opening date)
+            $newDate = null;
+          } else {
+            // opening: preserve planned date if set, otherwise set to now
+            $newDate = $hasDate ? $currentDate : cv_now();
+          }
 
           $stmt = $pdo->prepare('UPDATE capsule SET date_ouverture = :date_ouverture WHERE Id_Capsule = :capsule_id');
           $stmt->execute([
@@ -189,7 +197,8 @@ $capsulesStmt = $pdo->query(
       c.date_ouverture,
             c.Id_Utilisateur,
             u.nom AS owner_name,
-            (SELECT COUNT(*) FROM invitation i WHERE i.Id_Capsule = c.Id_Capsule) AS invitation_count,
+    (SELECT 1 + COUNT(*) FROM invitation i WHERE i.Id_Capsule = c.Id_Capsule AND i.statut = \'accepted\') AS member_count,
+    (SELECT COUNT(*) FROM invitation i WHERE i.Id_Capsule = c.Id_Capsule) AS invitation_count,
             (SELECT COUNT(*) FROM souvenir s WHERE s.Id_Capsule = c.Id_Capsule) AS souvenir_count
        FROM capsule c
        INNER JOIN utilisateur u ON u.Id_Utilisateur = c.Id_Utilisateur
@@ -300,6 +309,7 @@ $flash = cv_flash_get();
                   <th>Créée le</th>
                   <th>Ouverture</th>
                   <th>État</th>
+                  <th>Membres</th>
                   <th>Invitations</th>
                   <th>Souvenirs</th>
                   <th class="text-end">Actions</th>
@@ -318,6 +328,7 @@ $flash = cv_flash_get();
                     <td><?php echo h($createdAt); ?></td>
                     <td><?php echo h($openingAt); ?></td>
                     <td><span class="badge <?php echo $isOpen ? 'bg-success' : 'bg-warning text-dark'; ?>"><?php echo $isOpen ? 'Ouverte' : 'Verrouillée'; ?></span></td>
+                    <td><?php echo (int)($capsule['member_count'] ?? 1); ?></td>
                     <td><?php echo (int)$capsule['invitation_count']; ?></td>
                     <td><?php echo (int)$capsule['souvenir_count']; ?></td>
                     <td class="text-end">

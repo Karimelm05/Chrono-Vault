@@ -63,7 +63,7 @@ function cv_db_fetch_value(string $sql, array $params = [], int $default = 0): i
 }
 
 /**
- * Retourne le nombre de capsules accessibles par un utilisateur (propriétaire ou invité).
+ * Retourne le nombre de capsules accessibles par un utilisateur (propriétaire ou invité accepté).
  * @param int $userId
  * @return int
  */
@@ -73,14 +73,14 @@ function cv_capsule_count_accessible_for_user(int $userId): int
         'SELECT COUNT(DISTINCT c.Id_Capsule)
          FROM capsule c
          WHERE c.Id_Utilisateur = ? OR c.Id_Capsule IN (
-             SELECT DISTINCT i.Id_Capsule FROM invitation i WHERE i.Id_Utilisateur = ?
+             SELECT DISTINCT i.Id_Capsule FROM invitation i WHERE i.Id_Utilisateur = ? AND i.statut = \'accepted\'
          )',
         [$userId, $userId]
     );
 }
 
 /**
- * Retourne le nombre de capsules ouvertes accessibles par un utilisateur.
+ * Retourne le nombre de capsules ouvertes accessibles par un utilisateur (propriétaire ou invité accepté).
  * @param int $userId
  * @return int
  */
@@ -90,7 +90,7 @@ function cv_capsule_count_open_accessible_for_user(int $userId): int
         'SELECT COUNT(DISTINCT c.Id_Capsule)
          FROM capsule c
          WHERE (c.Id_Utilisateur = ? OR c.Id_Capsule IN (
-             SELECT DISTINCT i.Id_Capsule FROM invitation i WHERE i.Id_Utilisateur = ?
+             SELECT DISTINCT i.Id_Capsule FROM invitation i WHERE i.Id_Utilisateur = ? AND i.statut = \'accepted\'
          ))
          AND c.date_ouverture IS NOT NULL
          AND c.date_ouverture <= NOW()',
@@ -136,7 +136,7 @@ function cv_souvenir_count_open_accessible_for_user(int $userId): int
          FROM souvenir s
          JOIN capsule c ON c.Id_Capsule = s.Id_Capsule
          WHERE (c.Id_Utilisateur = ? OR c.Id_Capsule IN (
-             SELECT DISTINCT i.Id_Capsule FROM invitation i WHERE i.Id_Utilisateur = ?
+             SELECT DISTINCT i.Id_Capsule FROM invitation i WHERE i.Id_Utilisateur = ? AND i.statut = \'accepted\'
          ))
          AND c.date_ouverture IS NOT NULL
          AND c.date_ouverture <= NOW()',
@@ -158,7 +158,7 @@ function cv_capsule_recent_for_user(int $userId, int $limit = 3): array
                 (SELECT COUNT(*) FROM invitation i WHERE i.Id_Capsule = c.Id_Capsule) AS invitation_count
          FROM capsule c
          WHERE c.Id_Utilisateur = ? OR c.Id_Capsule IN (
-             SELECT DISTINCT i.Id_Capsule FROM invitation i WHERE i.Id_Utilisateur = ?
+             SELECT DISTINCT i.Id_Capsule FROM invitation i WHERE i.Id_Utilisateur = ? AND i.statut = \'accepted\'
          )
          ORDER BY c.date_creation DESC, c.Id_Capsule DESC
          LIMIT ' . (int)$limit,
@@ -226,8 +226,8 @@ function cv_capsule_user_is_owner(int $capsuleId, int $userId): bool
 function cv_capsule_user_has_access(int $capsuleId, int $userId): bool
 {
     return cv_db_fetch_value(
-        'SELECT COUNT(*) FROM invitation WHERE Id_Capsule = :capsule_id AND Id_Utilisateur = :user_id',
-        [':capsule_id' => $capsuleId, ':user_id' => $userId]
+        'SELECT COUNT(*) FROM invitation WHERE Id_Capsule = :capsule_id AND Id_Utilisateur = :user_id AND statut = :status',
+        [':capsule_id' => $capsuleId, ':user_id' => $userId, ':status' => 'accepted']
     ) > 0 || cv_capsule_user_is_owner($capsuleId, $userId);
 }
 
@@ -240,10 +240,10 @@ function cv_capsule_get_first_accessible_for_user(int $userId): int
 {
     return cv_db_fetch_value(
         'SELECT DISTINCT c.Id_Capsule FROM capsule c
-         LEFT JOIN invitation inv ON c.Id_Capsule = inv.Id_Capsule AND inv.Id_Utilisateur = :user_id
+         LEFT JOIN invitation inv ON c.Id_Capsule = inv.Id_Capsule AND inv.Id_Utilisateur = :user_id AND inv.statut = :status
          WHERE c.Id_Utilisateur = :user_id OR inv.Id_Utilisateur = :user_id
          ORDER BY c.date_creation DESC, c.Id_Capsule DESC LIMIT 1',
-        [':user_id' => $userId]
+        [':user_id' => $userId, ':status' => 'accepted']
     );
 }
 
@@ -408,7 +408,8 @@ function cv_capsule_delete_owned(int $capsuleId, int $userId): void
 }
 
 /**
- * Met à jour le statut d'une invitation pour un utilisateur (ex: accepted/declined).
+ * Met à jour le statut d'une invitation pour un utilisateur.
+ * Les invitations refusées sont supprimées de la base.
  * Retourne true si une ligne a été modifiée.
  * @param int $invitationId
  * @param int $userId
@@ -418,6 +419,16 @@ function cv_capsule_delete_owned(int $capsuleId, int $userId): void
 function cv_invitation_update_status_for_user(int $invitationId, int $userId, string $status): bool
 {
     global $pdo;
+
+    if ($status === 'declined') {
+        $stmt = $pdo->prepare('DELETE FROM invitation WHERE Id_Invitation = :invitation_id AND Id_Utilisateur = :user_id');
+        $stmt->execute([
+            ':invitation_id' => $invitationId,
+            ':user_id' => $userId,
+        ]);
+
+        return $stmt->rowCount() > 0;
+    }
 
     $stmt = $pdo->prepare('UPDATE invitation SET statut = :status WHERE Id_Invitation = :invitation_id AND Id_Utilisateur = :user_id');
     $stmt->execute([

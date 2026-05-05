@@ -11,7 +11,7 @@ $stmt = $pdo->prepare(
           (SELECT COUNT(*) FROM souvenir s WHERE s.Id_Capsule = c.Id_Capsule) AS souvenir_count,
           (SELECT COUNT(*) FROM invitation i WHERE i.Id_Capsule = c.Id_Capsule) AS invitation_count
          FROM capsule c
-        LEFT JOIN invitation inv ON c.Id_Capsule = inv.Id_Capsule AND inv.Id_Utilisateur = ?
+  LEFT JOIN invitation inv ON c.Id_Capsule = inv.Id_Capsule AND inv.Id_Utilisateur = ? AND inv.statut = \'accepted\'
          WHERE c.Id_Utilisateur = ? OR inv.Id_Utilisateur = ?
          ORDER BY c.date_creation DESC, c.Id_Capsule DESC'
 );
