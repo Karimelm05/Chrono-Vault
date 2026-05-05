@@ -91,12 +91,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
           <div class="mb-3 text-start">
             <label class="form-label small text-muted">Mot de passe</label>
-        <div class="input-group">
-          <input type="password" name="password" id="signup-password" class="form-control" placeholder="••••••••" required aria-describedby="pwHelp" autocomplete="new-password" />
-          <button class="btn btn-outline-secondary" type="button" id="pw-toggle-signup" aria-label="Afficher/masquer le mot de passe">👁️</button>
-        </div>
+         <input type="password" name="password" id="signup-password" class="form-control" placeholder="••••••••" required aria-describedby="pwHelp" />
 
-          <div id="password-strength" class="mt-2" style="display:none;">
+            <div id="password-strength" class="mt-2" style="display:none;">
               <div class="progress" style="height:8px;">
                 <div id="password-strength-bar" class="progress-bar" role="progressbar" style="width:0%"></div>
               </div>
@@ -188,17 +185,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (pw) {
           pw.addEventListener('input', updateUI);
-          const toggle = document.getElementById('pw-toggle-signup');
-          if (toggle) {
-            toggle.addEventListener('click', function () {
-              pw.type = pw.type === 'password' ? 'text' : 'password';
-              toggle.textContent = pw.type === 'password' ? '👁️' : '🙈';
-            });
-          }
-
           const form = document.getElementById('signup-form');
           form.addEventListener('submit', function (ev) {
-            const { score } = scorePassword(pw.value || '');
+            const { score, checks } = scorePassword(pw.value || '');
             // require at least 4/5 checks (length + 3 others) to allow
             if (score < 4) {
               ev.preventDefault();

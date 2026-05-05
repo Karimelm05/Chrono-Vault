@@ -53,9 +53,8 @@
             </li>
           </ul>
 
-          <div class="d-flex gap-2">
-            <a href="pages/login.php" class="btn btn-outline-chrono">Se connecter</a>
-            <a href="pages/signup.php" class="btn btn-chrono">S'inscrire</a>
+          <div>
+            <a href="pages/login.php" class="btn btn-chrono">Commencer</a>
           </div>
         </div>
       </div>
@@ -78,8 +77,10 @@
             </p>
 
             <div class="d-flex flex-wrap gap-3 mt-5">
-              <a href="pages/signup.php" class="btn btn-chrono">S'inscrire</a>
-              <a href="#features" class="btn btn-outline-chrono">En savoir plus</a>
+              <a href="pages/signup.php" class="btn btn-chrono">Créer une capsule</a>
+              <a href="#features" class="btn btn-outline-chrono"
+                >En savoir plus</a
+              >
             </div>
           </div>
 
