@@ -194,14 +194,14 @@ $flash = cv_flash_get();
 
       <div class="mb-3">
         <label class="form-label-cv" for="theme_select">Thème</label>
-      <select id="theme_select" class="form-input-cv">
-        <option value="indigo">Indigo (par défaut)</option>
-        <option value="brown">Brun</option>
-        <option value="emerald">Émeraude</option>
-        <option value="slate">Ardoise</option>
-        <option value="rose">Rose</option>
-        <option value="midnight">Minuit (sombre)</option>
-      </select>
+   <select id="theme_select" class="form-input-cv">
+  <option value="indigo">Indigo (par défaut)</option>
+  <option value="brown">Brun</option>
+  <option value="cendre">Cendre</option>
+  <option value="mauve">Mauve</option>
+  <option value="ambre">Ambre</option>
+  <option value="nuit">Nuit (sombre)</option>
+</select>
       </div>
 
       <div class="d-flex justify-content-end">

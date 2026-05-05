@@ -81,7 +81,7 @@ if (!empty($_SESSION['user']['id'])) {
     #sidebar {
       width: 248px;
       min-height: 100vh;
-      background: rgba(255, 255, 255, 0.94);
+    background: var(--color-surface-container);
       border-right: 1px solid var(--color-outline-variant);
       display: flex;
       flex-direction: column;
@@ -168,7 +168,7 @@ if (!empty($_SESSION['user']['id'])) {
     #main {
       flex: 1;
       min-width: 0;
-      background: transparent;
+      background: var(--color-surface-bright);
       display: flex;
       flex-direction: column;
     }
@@ -556,7 +556,7 @@ if (!empty($_SESSION['user']['id'])) {
     }
     .form-input-cv {
       width: 100%;
-      background: #fff;
+      background: var(--color-surface-container-highest);
       border: 1.5px solid var(--color-outline-variant);
       border-radius: 0.5rem;
       padding: 0.7rem 0.9rem;
