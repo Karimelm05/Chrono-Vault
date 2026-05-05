@@ -1,5 +1,5 @@
 <?php
-
+// Ce fichier contient les fonctions et configurations globales de l'application.
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -44,7 +44,31 @@ function cv_store_user_session(array $user): void
         'name' => (string)($user['nom'] ?? ''),
         'email' => (string)($user['email'] ?? ''),
         'role' => (string)($user['role'] ?? 'user'),
+        'statut' => (string)($user['statut'] ?? ''),
     ];
+}
+
+/**
+ * Vérifie que l'utilisateur courant est un administrateur.
+ * Permet la compatibilité en vérifiant soit `statut === 'admin'` soit `role === 'admin'`.
+ */
+function cv_require_admin(): void
+{
+    if (!cv_current_user()) {
+        header('Location: login.php');
+        exit();
+    }
+
+    $u = cv_current_user();
+    $role = strtolower(trim((string)($u['role'] ?? '')));
+    $statut = strtolower(trim((string)($u['statut'] ?? '')));
+    $isAdmin = ($role === 'admin') && ($statut === 'actif');
+
+    if (! $isAdmin) {
+        cv_flash_set('danger', 'Accès refusé : privilèges administrateur requis.');
+        header('Location: dashboard.php');
+        exit();
+    }
 }
 
 function cv_now(): string

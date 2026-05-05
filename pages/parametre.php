@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../includes/app.php';
 cv_require_login();
 
+$activePage = 'parametre';
 $user = cv_current_user();
 $userId = (int)($user['id'] ?? 0);
 
@@ -71,6 +72,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: parametre.php');
             exit();
         }
+    }
+
+    if ($action === 'delete_account') {
+        $stmt = $pdo->prepare('UPDATE utilisateur SET statut = :statut WHERE Id_Utilisateur = :user_id');
+        $stmt->execute([
+            ':statut' => 'inactif',
+            ':user_id' => $userId,
+        ]);
+
+        session_destroy();
+        cv_flash_set('success', 'Votre compte a été désactivé.');
+        header('Location: ../index.php');
+        exit();
     }
 }
 
@@ -161,7 +175,14 @@ $flash = cv_flash_get();
       <div class="capsule-card" style="height:auto;">
         <div class="card-body-cv">
           <h3 class="card-title-cv text-danger">Zone de danger</h3>
-          <p class="card-desc">La suppression du compte n’est pas encore activée dans cette version du backend.</p>
+          <p class="card-desc">Désactiver votre compte le rendra inactif. Vous ne pourrez plus vous connecter ni accéder à vos données.</p>
+          
+          <form method="post" onsubmit="return confirm('Êtes-vous sûr ? Cette action rendra votre compte inactif et vous déconnectera.');">
+            <input type="hidden" name="action" value="delete_account" />
+            <button type="submit" class="btn btn-danger" style="background-color: #dc3545; border: none; padding: 0.7rem 1.4rem; border-radius: 0.5rem; font-weight: 700; font-family: 'Plus Jakarta Sans', sans-serif; cursor: pointer; color: white;">
+              Désactiver le compte
+            </button>
+          </form>
         </div>
       </div>
     </div>

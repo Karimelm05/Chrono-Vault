@@ -2,66 +2,22 @@
 require_once __DIR__ . '/../includes/app.php';
 cv_require_login();
 
+$activePage = 'dashboard';
 $user = cv_current_user();
 $userId = (int)($user['id'] ?? 0);
 
-$stmt = $pdo->prepare(
-'SELECT COUNT(DISTINCT c.Id_Capsule)
- FROM capsule c
- WHERE c.Id_Utilisateur = ? OR c.Id_Capsule IN (SELECT DISTINCT i.Id_Capsule FROM invitation i WHERE i.Id_Utilisateur = ? )'
-);
-$stmt->execute([$userId, $userId]);
-$totalCapsules = (int)$stmt->fetchColumn();
-
-$stmt = $pdo->prepare(
-'SELECT COUNT(DISTINCT c.Id_Capsule)
- FROM capsule c
- WHERE (c.Id_Utilisateur = ? OR c.Id_Capsule IN (SELECT DISTINCT i.Id_Capsule FROM invitation i WHERE i.Id_Utilisateur = ?))
- AND c.date_ouverture IS NOT NULL
- AND c.date_ouverture <= NOW()'
-);
-$stmt->execute([$userId, $userId]);
-$openCapsules = (int)$stmt->fetchColumn();
-
-$stmt = $pdo->prepare("SELECT COUNT(*) FROM invitation WHERE Id_Utilisateur = :user_id AND statut = 'pending'");
-$stmt->execute([':user_id' => $userId]);
-$pendingInvitations = (int)$stmt->fetchColumn();
-
-$stmt = $pdo->prepare('SELECT COUNT(*) FROM souvenir WHERE Id_Utilisateur = :user_id');
-$stmt->execute([':user_id' => $userId]);
-$totalSouvenirs = (int)$stmt->fetchColumn();
-
-$stmt = $pdo->prepare("\n    SELECT COUNT(*)\n    FROM souvenir s\n    JOIN capsule c ON c.Id_Capsule = s.Id_Capsule\n    WHERE (c.Id_Utilisateur = ? OR c.Id_Capsule IN (\n        SELECT DISTINCT i.Id_Capsule FROM invitation i WHERE i.Id_Utilisateur = ?\n    ))\n    AND c.date_ouverture IS NOT NULL\n    AND c.date_ouverture <= NOW()\n");
-$stmt->execute([$userId, $userId]);
-$souvenirOpen = (int)$stmt->fetchColumn();
+$totalCapsules = cv_capsule_count_accessible_for_user($userId);
+$openCapsules = cv_capsule_count_open_accessible_for_user($userId);
+$pendingInvitations = cv_invitation_count_pending_for_user($userId);
+$totalSouvenirs = cv_souvenir_count_for_user($userId);
+$souvenirOpen = cv_souvenir_count_open_accessible_for_user($userId);
 
 $activityRate = $totalCapsules > 0 ? (int)round(($openCapsules / $totalCapsules) * 100) : 0;
 
 $lockedCapsules = (int)max(0, $totalCapsules - $openCapsules);
 
-$stmt = $pdo->prepare(
-    'SELECT c.Id_Capsule, c.titre, c.description, c.date_creation, c.date_ouverture,
-            (SELECT COUNT(*) FROM souvenir s WHERE s.Id_Capsule = c.Id_Capsule) AS souvenir_count,
-            (SELECT COUNT(*) FROM invitation i WHERE i.Id_Capsule = c.Id_Capsule) AS invitation_count
-     FROM capsule c
-     WHERE c.Id_Utilisateur = ? OR c.Id_Capsule IN (SELECT DISTINCT i.Id_Capsule FROM invitation i WHERE i.Id_Utilisateur = ?)
-     ORDER BY c.date_creation DESC, c.Id_Capsule DESC
-     LIMIT 3'
-);
-  $stmt->execute([$userId, $userId]);
-$recentCapsules = $stmt->fetchAll();
-
-$stmt = $pdo->prepare(
-    'SELECT i.Id_Invitation, i.statut, i.date_envoi, c.titre, c.date_ouverture, u.nom AS owner_name
-     FROM invitation i
-     INNER JOIN capsule c ON c.Id_Capsule = i.Id_Capsule
-     INNER JOIN utilisateur u ON u.Id_Utilisateur = c.Id_Utilisateur
-     WHERE i.Id_Utilisateur = :user_id
-     ORDER BY i.date_envoi DESC, i.Id_Invitation DESC
-     LIMIT 5'
-);
-$stmt->execute([':user_id' => $userId]);
-$recentInvitations = $stmt->fetchAll();
+$recentCapsules = cv_capsule_recent_for_user($userId, 3);
+$recentInvitations = cv_invitation_recent_pending_for_user($userId, 5);
 
 require_once __DIR__ . '/../includes/layout.php';
 ?>
@@ -114,9 +70,9 @@ require_once __DIR__ . '/../includes/layout.php';
     <div class="col-12 col-md-6 col-lg-3">
       <div class="capsule-card" style="height:auto; min-height: 170px;">
         <div class="card-body-cv">
-          <p class="card-category">Souvenirs</p>
-          <h3 class="card-title-cv stat-number"><?php echo $totalSouvenirs; ?></h3>
-          <p class="card-desc">Messages et photos ajoutés</p>
+          <p class="card-category">Activité</p>
+          <h3 class="card-title-cv stat-number"><?php echo $activityRate; ?>%</h3>
+          <p class="card-desc">Capsules accessibles</p>
         </div>
       </div>
     </div>
@@ -183,12 +139,12 @@ require_once __DIR__ . '/../includes/layout.php';
       <div class="capsule-card" style="height:auto; min-height: 320px;">
         <div class="card-body-cv">
           <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
-            <h3 class="card-title-cv mb-0">Dernières invitations</h3>
+            <h3 class="card-title-cv mb-0">Invitations en attente</h3>
             <a class="btn btn-link p-0 text-decoration-none" href="invitations.php" style="color: var(--color-primary); font-weight: 700;">Gérer</a>
           </div>
 
           <?php if (!$recentInvitations): ?>
-            <p class="card-desc mb-0">Aucune invitation reçue pour le moment.</p>
+            <p class="card-desc mb-0">Aucune invitation en attente pour le moment.</p>
           <?php else: ?>
             <div class="d-flex flex-column gap-3">
               <?php foreach ($recentInvitations as $invitation): ?>
@@ -211,19 +167,6 @@ require_once __DIR__ . '/../includes/layout.php';
     </div>
   </div>
 
-  <div class="row g-4 mt-1">
-    <div class="col-12">
-      <div class="capsule-card" style="height:auto; min-height: 120px;">
-        <div class="card-body-cv d-flex align-items-center justify-content-between flex-wrap gap-3">
-          <div>
-            <p class="card-category mb-1">Activité</p>
-            <h3 class="card-title-cv mb-0"><?php echo $activityRate; ?>%</h3>
-          </div>
-          <p class="card-desc mb-0">Taux d'ouverture sur vos capsules participées.</p>
-        </div>
-      </div>
-    </div>
-  </div>
 </section>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

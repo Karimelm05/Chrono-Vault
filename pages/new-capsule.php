@@ -2,6 +2,8 @@
 require_once __DIR__ . '/../includes/app.php';
 cv_require_login();
 
+$activePage = 'new-capsule';
+
 $user = cv_current_user();
 $userId = (int)($user['id'] ?? 0);
 $errors = [];
@@ -11,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $description = trim($_POST['description'] ?? '');
     $openDate = trim($_POST['open_date'] ?? '');
     $inviteEmailsRaw = trim($_POST['invite_emails'] ?? '');
+  $photoPath = null;
 
     if ($title === '') {
         $errors[] = 'Le titre est obligatoire.';
@@ -18,51 +21,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($openDate === '') {
         $errors[] = 'La date d’ouverture est obligatoire.';
+    } elseif (strtotime($openDate) < strtotime(date('Y-m-d'))) {
+      $errors[] = 'La date d’ouverture ne peut pas être dans le passé.';
     }
 
     if (!$errors) {
+        try {
+        if (!empty($_FILES['photo']['name'])) {
+          $photoPath = cv_store_upload_file($_FILES['photo'], 'images/uploads', 'capsule');
+        }
+
         $pdo->beginTransaction();
 
-        try {
-            $stmt = $pdo->prepare('INSERT INTO capsule (titre, description, date_creation, date_ouverture, Id_Utilisateur) VALUES (:titre, :description, :date_creation, :date_ouverture, :user_id)');
-            $stmt->execute([
-                ':titre' => $title,
-                ':description' => $description !== '' ? $description : null,
-                ':date_creation' => cv_now(),
-                ':date_ouverture' => $openDate . ' 00:00:00',
-                ':user_id' => $userId,
-            ]);
+        $capsuleId = cv_capsule_create([
+          'titre' => $title,
+          'description' => $description !== '' ? $description : null,
+          'photo' => $photoPath,
+          'date_creation' => cv_now(),
+          'date_ouverture' => $openDate . ' 00:00:00',
+          'user_id' => $userId,
+        ]);
+            $pdo->commit();
 
-            $capsuleId = (int)$pdo->lastInsertId();
-            $now = cv_now();
             $inviteEmails = preg_split('/[\r\n,;]+/', $inviteEmailsRaw) ?: [];
-            $inviteEmails = array_values(array_filter(array_map('trim', $inviteEmails)));
+            $inviteEmails = array_values(array_unique(array_filter(array_map(static function (string $email): string {
+                return strtolower(trim($email));
+            }, $inviteEmails))));
 
-            $userLookup = $pdo->prepare('SELECT Id_Utilisateur FROM utilisateur WHERE email = :email LIMIT 1');
-            $inviteInsert = $pdo->prepare('INSERT INTO invitation (statut, date_envoi, Id_Capsule, Id_Utilisateur) VALUES (:statut, :date_envoi, :capsule_id, :user_id)');
+            $now = cv_now();
+            $invitedCount = 0;
+            $invalidEmails = [];
 
-            $missingEmails = [];
             foreach ($inviteEmails as $email) {
-                $userLookup->execute([':email' => $email]);
-                $invitee = $userLookup->fetch();
-
-                if (!$invitee) {
-                    $missingEmails[] = $email;
+                if ($email === '') {
                     continue;
                 }
 
-                $inviteInsert->execute([
-                    ':statut' => 'pending',
-                    ':date_envoi' => $now,
-                    ':capsule_id' => $capsuleId,
-                    ':user_id' => (int)$invitee['Id_Utilisateur'],
-                ]);
+                $invitee = cv_user_find_by_email($email);
+
+                if (!$invitee || (string)($invitee['statut'] ?? 'actif') !== 'actif') {
+                    $invalidEmails[] = $email;
+                    continue;
+                }
+
+                if (cv_invitation_exists_for_capsule($capsuleId, (int)$invitee['Id_Utilisateur'])) {
+                    $invalidEmails[] = $email;
+                    continue;
+                }
+
+                cv_invitation_create($capsuleId, (int)$invitee['Id_Utilisateur'], 'pending', $now);
+                $invitedCount++;
             }
 
-            $pdo->commit();
-
-            if ($missingEmails) {
-                cv_flash_set('warning', 'Capsule créée. Certains emails n’existent pas: ' . implode(', ', $missingEmails));
+            if ($invitedCount > 0 && $invalidEmails) {
+                cv_flash_set('warning', $invitedCount . ' invitation(s) envoyée(s). Adresses invalides: ' . implode(', ', $invalidEmails) . '.');
+            } elseif ($invitedCount > 0) {
+                cv_flash_set('success', $invitedCount . ' invitation(s) envoyée(s).');
+            } elseif ($invalidEmails) {
+                cv_flash_set('warning', 'Aucune invitation envoyée. Adresses invalides: ' . implode(', ', $invalidEmails) . '.');
             } else {
                 cv_flash_set('success', 'Capsule créée avec succès.');
             }
@@ -70,7 +86,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: capsule.php?id=' . $capsuleId);
             exit();
         } catch (Throwable $e) {
-            $pdo->rollBack();
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            if ($photoPath !== null) {
+                $photoFile = dirname(__DIR__) . '/' . ltrim($photoPath, '/');
+                if (is_file($photoFile)) {
+                    @unlink($photoFile);
+                }
+            }
+
             $errors[] = 'Impossible de créer la capsule.';
         }
     }
@@ -105,7 +131,7 @@ $flash = cv_flash_get();
     <div class="col-12 col-lg-8">
       <div class="capsule-card" style="height:auto;">
         <div class="card-body-cv">
-          <form method="post">
+          <form method="post" enctype="multipart/form-data">
             <div class="mb-3">
               <label class="form-label-cv" for="title">Titre de la capsule</label>
               <input id="title" name="title" type="text" class="form-input-cv" placeholder="Ex: Vacances d'été 2026" />
@@ -114,6 +140,12 @@ $flash = cv_flash_get();
             <div class="mb-3">
               <label class="form-label-cv" for="description">Description</label>
               <textarea id="description" name="description" class="form-input-cv" rows="5" placeholder="Décrivez l'objectif de cette capsule..."></textarea>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label-cv" for="photo">Photo de la capsule</label>
+              <input id="photo" name="photo" type="file" class="form-input-cv" accept=".jpg,.jpeg,.png,.gif" />
+              <div class="form-hint">Cette image sera utilisée comme photo de couverture de la capsule.</div>
             </div>
 
             <div class="mb-3">

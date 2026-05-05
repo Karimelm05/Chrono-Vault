@@ -22,17 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $errors[] = 'Veuillez sélectionner une photo.';
         } else {
           // Permission check: only owner or invited users can post
-          $permStmt = $pdo->prepare('SELECT Id_Utilisateur FROM capsule WHERE Id_Capsule = :capsule_id LIMIT 1');
-          $permStmt->execute([':capsule_id' => $capsuleId]);
-          $ownerId = (int)$permStmt->fetchColumn();
-          $allowed = false;
-          if ($ownerId === $userId) {
-            $allowed = true;
-          } else {
-            $invStmt = $pdo->prepare('SELECT COUNT(*) FROM invitation WHERE Id_Capsule = :capsule_id AND Id_Utilisateur = :user_id');
-            $invStmt->execute([':capsule_id' => $capsuleId, ':user_id' => $userId]);
-            $allowed = (int)$invStmt->fetchColumn() > 0;
-          }
+          $allowed = cv_capsule_user_has_access($capsuleId, $userId);
 
           if (! $allowed) {
             $errors[] = 'Vous n\'avez pas la permission de poster dans cette capsule.';
@@ -44,14 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $donnee = cv_store_upload_file($_FILES['souvenir_photo'], 'images/uploads', 'souvenir');
               }
 
-              $stmt = $pdo->prepare('INSERT INTO souvenir (type, donnee, date_poste, Id_Utilisateur, Id_Capsule) VALUES (:type, :donnee, :date_poste, :user_id, :capsule_id)');
-              $stmt->execute([
-                ':type' => $type,
-                ':donnee' => $donnee,
-                ':date_poste' => cv_now(),
-                ':user_id' => $userId,
-                ':capsule_id' => $capsuleId,
-              ]);
+              cv_souvenir_create($capsuleId, $userId, $type, $donnee);
 
               cv_flash_set('success', $type === 'photo' ? 'Photo ajoutée à la capsule.' : 'Message ajouté à la capsule.');
               header('Location: capsule.php?id=' . $capsuleId);
@@ -70,36 +53,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = 'L’adresse email est obligatoire.';
         } else {
             // Only capsule owner can invite members
-            $ownerCheck = $pdo->prepare('SELECT Id_Utilisateur FROM capsule WHERE Id_Capsule = :capsule_id LIMIT 1');
-            $ownerCheck->execute([':capsule_id' => $capsuleId]);
-            $ownerIdForInvite = (int)$ownerCheck->fetchColumn();
-
-            if ($ownerIdForInvite !== $userId) {
+            if (!cv_capsule_user_is_owner($capsuleId, $userId)) {
                 $errors[] = 'Seul le créateur de la capsule peut inviter des membres.';
             } else {
-                $stmt = $pdo->prepare('SELECT Id_Utilisateur, nom FROM utilisateur WHERE email = :email LIMIT 1');
-                $stmt->execute([':email' => $inviteEmail]);
-                $invitee = $stmt->fetch();
+              $invitee = cv_user_find_by_email($inviteEmail);
 
                 if (!$invitee) {
                     $errors[] = 'Aucun utilisateur ne correspond à cet email.';
                 } else {
-                    $stmt = $pdo->prepare('SELECT Id_Invitation FROM invitation WHERE Id_Capsule = :capsule_id AND Id_Utilisateur = :user_id LIMIT 1');
-                    $stmt->execute([
-                        ':capsule_id' => $capsuleId,
-                        ':user_id' => (int)$invitee['Id_Utilisateur'],
-                    ]);
-
-                    if ($stmt->fetch()) {
+                if (cv_invitation_exists_for_capsule($capsuleId, (int)$invitee['Id_Utilisateur'])) {
                         $errors[] = 'Cette personne est déjà invitée.';
                     } else {
-                        $stmt = $pdo->prepare('INSERT INTO invitation (statut, date_envoi, Id_Capsule, Id_Utilisateur) VALUES (:statut, :date_envoi, :capsule_id, :user_id)');
-                        $stmt->execute([
-                            ':statut' => 'pending',
-                            ':date_envoi' => cv_now(),
-                            ':capsule_id' => $capsuleId,
-                            ':user_id' => (int)$invitee['Id_Utilisateur'],
-                        ]);
+                  cv_invitation_create($capsuleId, (int)$invitee['Id_Utilisateur']);
 
                         cv_flash_set('success', 'Invitation envoyée à ' . $inviteEmail . '.');
                         header('Location: capsule.php?id=' . $capsuleId);
@@ -109,17 +74,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+
+    if ($action === 'delete_capsule') {
+        // Get the capsule ID and verify ownership
+        if (cv_capsule_user_is_owner($capsuleId, $userId)) {
+            $pdo->beginTransaction();
+            try {
+              cv_capsule_delete_owned($capsuleId, $userId);
+
+              $pdo->commit();
+                cv_flash_set('success', 'Capsule supprimée.');
+                header('Location: capsules.php');
+                exit();
+            } catch (Throwable $e) {
+                $pdo->rollBack();
+                cv_flash_set('danger', 'Impossible de supprimer la capsule.');
+                header('Location: capsule.php?id=' . $capsuleId);
+                exit();
+            }
+        }
+    }
 }
 
 if ($capsuleId <= 0) {
-    $stmt = $pdo->prepare(
-      'SELECT DISTINCT c.Id_Capsule FROM capsule c
-       LEFT JOIN invitation inv ON c.Id_Capsule = inv.Id_Capsule AND inv.Id_Utilisateur = :user_id
-       WHERE c.Id_Utilisateur = :user_id OR inv.Id_Utilisateur = :user_id
-       ORDER BY c.date_creation DESC, c.Id_Capsule DESC LIMIT 1'
-    );
-    $stmt->execute([':user_id' => $userId]);
-    $capsuleId = (int)($stmt->fetchColumn() ?: 0);
+      $capsuleId = cv_capsule_get_first_accessible_for_user($userId);
 }
 
 if ($capsuleId <= 0) {
@@ -128,15 +106,7 @@ if ($capsuleId <= 0) {
     exit();
 }
 
-$stmt = $pdo->prepare(
-    'SELECT c.Id_Capsule, c.titre, c.description, c.date_creation, c.date_ouverture, c.Id_Utilisateur, u.nom AS owner_name
-     FROM capsule c
-     INNER JOIN utilisateur u ON u.Id_Utilisateur = c.Id_Utilisateur
-     WHERE c.Id_Capsule = :capsule_id
-     LIMIT 1'
-);
-$stmt->execute([':capsule_id' => $capsuleId]);
-$capsule = $stmt->fetch();
+$capsule = cv_capsule_get_by_id($capsuleId);
 
 if (!$capsule) {
     cv_flash_set('danger', 'Capsule introuvable.');
@@ -146,9 +116,7 @@ if (!$capsule) {
 
 $isOwner = (int)$capsule['Id_Utilisateur'] === $userId;
 
-$stmt = $pdo->prepare('SELECT COUNT(*) FROM invitation WHERE Id_Capsule = :capsule_id AND Id_Utilisateur = :user_id');
-$stmt->execute([':capsule_id' => $capsuleId, ':user_id' => $userId]);
-$hasInvitation = (int)$stmt->fetchColumn() > 0;
+$hasInvitation = cv_capsule_user_has_access($capsuleId, $userId);
 
 if (!$isOwner && !$hasInvitation) {
     cv_flash_set('danger', 'Vous n’avez pas accès à cette capsule.');
@@ -156,13 +124,29 @@ if (!$isOwner && !$hasInvitation) {
     exit();
 }
 
-$stmt = $pdo->prepare('SELECT type, donnee, date_poste FROM souvenir WHERE Id_Capsule = :capsule_id ORDER BY date_poste DESC, Id_Souvenir DESC');
-$stmt->execute([':capsule_id' => $capsuleId]);
-$souvenirs = $stmt->fetchAll();
+$isOpen = !empty($capsule['date_ouverture']) && strtotime((string)$capsule['date_ouverture']) <= time();
 
-$stmt = $pdo->prepare('SELECT COUNT(*) FROM invitation WHERE Id_Capsule = :capsule_id');
-$stmt->execute([':capsule_id' => $capsuleId]);
-$memberCount = (int)$stmt->fetchColumn() + 1;
+$souvenirs = [];
+$memberList = [];
+$memberList[] = [
+  'name' => (string)$capsule['owner_name'],
+  'email' => '',
+  'status' => 'owner',
+];
+
+foreach (cv_capsule_get_members($capsuleId) as $member) {
+  $memberList[] = [
+    'name' => (string)$member['nom'],
+    'email' => (string)$member['email'],
+    'status' => (string)$member['statut'],
+  ];
+}
+
+if ($isOpen) {
+  $souvenirs = cv_capsule_get_souvenirs($capsuleId);
+}
+
+$memberCount = count($memberList);
 
 $messageCount = 0;
 $photoCount = 0;
@@ -187,7 +171,18 @@ $flash = cv_flash_get();
       </div>
       <p class="page-subtitle mb-0"><?php echo h((string)($capsule['description'] ?: 'Aucune description')); ?></p>
     </div>
-    <a class="btn-filter text-decoration-none" href="capsules.php">Retour aux capsules</a>
+    <div class="d-flex gap-2">
+      <a class="btn-filter text-decoration-none" href="capsules.php">Retour aux capsules</a>
+      <?php if ($isOwner): ?>
+      <form method="post" style="display: inline;" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer cette capsule ? Cette action ne peut pas être annulée.');">
+        <input type="hidden" name="action" value="delete_capsule" />
+        <input type="hidden" name="capsule_id" value="<?php echo (int)$capsuleId; ?>" />
+        <button type="submit" class="btn-delete" aria-label="Supprimer la capsule" style="background: #dc3545; color: white; border: none; padding: 1.4rem 1.4rem; border-radius: 0.5rem; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.9rem;">
+          <span class="material-symbols-outlined" style="font-size:16px">delete</span>
+        </button>
+      </form>
+      <?php endif; ?>
+    </div>
   </div>
 
   <?php if ($flash): ?>
@@ -199,10 +194,14 @@ $flash = cv_flash_get();
   <?php endforeach; ?>
 </header>
 
+
 <section class="cards-section">
   <div class="row g-4">
     <div class="col-12">
       <div class="capsule-card" style="height:auto; min-height: 180px;">
+        <div class="card-img-wrapper">
+          <img src="<?php echo h(!empty($capsule['photo']) ? '../' . ltrim((string)$capsule['photo'], '/') : '../images/default-capsule.jpg'); ?>" alt="<?php echo h((string)$capsule['titre']); ?>" style="width: 100%; height: 100%; object-fit: cover;">
+        </div>
         <div class="card-body-cv">
           <p class="card-category">Confidentiel jusqu'à l'ouverture</p>
           <h3 class="card-title-cv mb-2"><?php echo h((string)$capsule['titre']); ?></h3>
@@ -211,7 +210,7 @@ $flash = cv_flash_get();
           </p>
 
           <div class="row g-3">
-            <div class="col-12 col-md-4"><div class="capsule-card" style="height:auto; min-height: 120px;"><div class="card-body-cv"><p class="card-category">Date d'ouverture</p><h3 class="card-title-cv"> <?php echo h(!empty($capsule['date_ouverture']) ? date('d/m/Y', strtotime((string)$capsule['date_ouverture'])) : 'Non définie'); ?></h3></div></div></div>
+            <div class="col-12 col-md-4"><div class="capsule-card" style="height:auto; min-height: 120px;"><div class="card-body-cv"><p class="card-category">Date d'ouverture</p><h3 class="card-title-cv"><?php echo h(!empty($capsule['date_ouverture']) ? date('d/m/Y', strtotime((string)$capsule['date_ouverture'])) : 'Non définie'); ?></h3></div></div></div>
             <div class="col-12 col-md-4"><div class="capsule-card" style="height:auto; min-height: 120px;"><div class="card-body-cv"><p class="card-category">Membres</p><h3 class="card-title-cv"><?php echo $memberCount; ?></h3></div></div></div>
             <div class="col-12 col-md-4"><div class="capsule-card" style="height:auto; min-height: 120px;"><div class="card-body-cv"><p class="card-category">Contenu</p><h3 class="card-title-cv"><?php echo $messageCount; ?> message(s) · <?php echo $photoCount; ?> photo(s)</h3></div></div></div>
           </div>
@@ -219,7 +218,57 @@ $flash = cv_flash_get();
       </div>
     </div>
 
-    <div class="col-12 col-lg-7">
+    <?php /* When capsule is open we show souvenirs in the left column (col-lg-7) so members appear on the right (col-lg-5) */ ?>
+
+    <div class="col-12 col-lg-8">
+      <?php if ($isOpen): ?>
+      <div class="capsule-card" style="height:auto;">
+        <div class="card-body-cv">
+          <div class="d-flex justify-content-between align-items-center gap-3 mb-4 flex-wrap">
+            <div>
+              <h3 class="card-title-cv mb-1">Souvenirs de la capsule</h3>
+              <p class="card-desc mb-0">Messages et photos disponibles depuis l'ouverture.</p>
+            </div>
+          </div>
+
+          <?php if (!$souvenirs): ?>
+            <p class="card-desc mb-0">Aucun souvenir n’a encore été ajouté.</p>
+          <?php else: ?>
+            <div class="row g-3">
+              <?php foreach ($souvenirs as $souvenir): ?>
+                <div class="col-12 col-md-6">
+                  <div class="capsule-card souvenir-item-card" style="height:auto; min-height: 220px;">
+                    <div class="card-body-cv d-flex flex-column">
+                      <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+                        <span class="souvenir-type-pill"><?php echo ($souvenir['type'] ?? '') === 'photo' ? 'Photo' : 'Message'; ?></span>
+                      </div>
+
+                      <?php if (($souvenir['type'] ?? '') === 'photo'): ?>
+                        <div class="card-img-wrapper mb-3" style="height: 190px;">
+                          <img src="<?php echo h('../' . ltrim((string)$souvenir['donnee'], '/')); ?>" alt="Souvenir photo" style="width:100%; height:100%; object-fit:cover;">
+                        </div>
+                      <?php else: ?>
+                        <div class="souvenir-message-box">
+                          <p class="souvenir-message-text"><?php echo h((string)$souvenir['donnee']); ?></p>
+                        </div>
+                      <?php endif; ?>
+
+                      <div class="mt-auto">
+                        <div class="open-label">Posté le</div>
+                        <div class="open-value"><?php echo h(!empty($souvenir['date_poste']) ? date('d/m/Y H:i', strtotime((string)$souvenir['date_poste'])) : 'Non définie'); ?></div>
+                        <div class="card-desc mb-0" style="-webkit-line-clamp: unset; line-clamp: unset; margin-top: 0.35rem;">
+                          par <strong><?php echo h((string)($souvenir['auteur_nom'] ?? 'Utilisateur')); ?></strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          <?php endif; ?>
+        </div>
+      </div>
+      <?php else: ?>
       <div class="capsule-card" style="height:auto;">
         <div class="card-body-cv">
           <h3 class="card-title-cv">Ajouter du contenu</h3>
@@ -252,12 +301,10 @@ $flash = cv_flash_get();
           </form>
         </div>
       </div>
-    </div>
 
-    <div class="col-12 col-lg-5">
-      <div class="capsule-card" style="height:auto;">
+      <div class="capsule-card mt-4" style="height:auto;">
         <div class="card-body-cv">
-          <h3 class="card-title-cv">Gestion des membres</h3>
+          <h3 class="card-title-cv">Inviter un membre</h3>
           <p class="card-desc">Invitez un utilisateur déjà inscrit à rejoindre cette capsule.</p>
 
           <?php if ($isOwner): ?>
@@ -275,15 +322,31 @@ $flash = cv_flash_get();
             </div>
           </form>
           <?php else: ?>
-            <p class="card-desc">Seul le créateur de la capsule peut inviter des membres.</p>
+            <p class="card-desc" style='color:red;'>Seul le créateur de la capsule peut inviter des membres.</p>
           <?php endif; ?>
         </div>
       </div>
+      <?php endif; ?>
+    </div>
 
-      <div class="capsule-card mt-4" style="height:auto;">
+    <div class="col-12 col-lg-4">
+      <div class="capsule-card" style="height:auto;">
         <div class="card-body-cv">
-          <h3 class="card-title-cv">Contenu verrouillé</h3>
-          <p class="card-desc">Tous les souvenirs restent accessibles uniquement aux membres autorisés.</p>
+          <h3 class="card-title-cv">Membres de la capsule</h3>
+          <p class="card-desc">Le propriétaire et les membres acceptés apparaissent ici.</p>
+
+          <div class="d-flex flex-column gap-2 mb-4">
+            <?php foreach ($memberList as $member): ?>
+              <div class="d-flex justify-content-between align-items-center gap-3 pb-2 border-bottom">
+                <div>
+                  <strong><?php echo h((string)$member['name']); ?></strong>
+                </div>
+                <span class="badge-cv <?php echo ($member['status'] ?? '') === 'owner' ? 'badge-sealed' : 'badge-soon'; ?>">
+                  <?php echo ($member['status'] ?? '') === 'owner' ? 'Propriétaire' : 'Membre'; ?>
+                </span>
+              </div>
+            <?php endforeach; ?>
+          </div>
         </div>
       </div>
     </div>

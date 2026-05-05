@@ -2,41 +2,12 @@
 require_once __DIR__ . '/../includes/app.php';
 cv_require_login();
 
+$activePage = 'capsules';
 $user = cv_current_user();
 $userId = (int)($user['id'] ?? 0);
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_capsule') {
-    $capsuleId = (int)($_POST['capsule_id'] ?? 0);
-
-    $stmt = $pdo->prepare('SELECT Id_Capsule FROM capsule WHERE Id_Capsule = :capsule_id AND Id_Utilisateur = :user_id LIMIT 1');
-    $stmt->execute([':capsule_id' => $capsuleId, ':user_id' => $userId]);
-
-    if ($stmt->fetch()) {
-        $pdo->beginTransaction();
-        try {
-            $stmt = $pdo->prepare('DELETE FROM invitation WHERE Id_Capsule = :capsule_id');
-            $stmt->execute([':capsule_id' => $capsuleId]);
-
-            $stmt = $pdo->prepare('DELETE FROM souvenir WHERE Id_Capsule = :capsule_id');
-            $stmt->execute([':capsule_id' => $capsuleId]);
-
-            $stmt = $pdo->prepare('DELETE FROM capsule WHERE Id_Capsule = :capsule_id AND Id_Utilisateur = :user_id');
-            $stmt->execute([':capsule_id' => $capsuleId, ':user_id' => $userId]);
-
-            $pdo->commit();
-            cv_flash_set('success', 'Capsule supprimée.');
-        } catch (Throwable $e) {
-            $pdo->rollBack();
-            cv_flash_set('danger', 'Impossible de supprimer la capsule.');
-        }
-    }
-
-    header('Location: capsules.php');
-    exit();
-}
-
 $stmt = $pdo->prepare(
-        'SELECT DISTINCT c.Id_Capsule, c.titre, c.description, c.date_creation, c.date_ouverture, c.Id_Utilisateur,
+        'SELECT DISTINCT c.Id_Capsule, c.titre, c.description, c.date_creation, c.date_ouverture, c.photo, c.Id_Utilisateur,
           (SELECT COUNT(*) FROM souvenir s WHERE s.Id_Capsule = c.Id_Capsule) AS souvenir_count,
           (SELECT COUNT(*) FROM invitation i WHERE i.Id_Capsule = c.Id_Capsule) AS invitation_count
          FROM capsule c
@@ -87,39 +58,31 @@ $flash = cv_flash_get();
           $openDate = !empty($capsule['date_ouverture']) ? date('d/m/Y', strtotime((string)$capsule['date_ouverture'])) : 'Non définie';
         ?>
         <div class="col-12 col-md-6 col-lg-4">
-          <div class="capsule-card" style="height:auto; min-height: 280px;">
-            <div class="card-body-cv d-flex flex-column">
-              <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-                <p class="card-category mb-0"><?php echo $isOpen ? 'Ouverte' : 'Verrouillée'; ?></p>
-                <span class="badge-cv <?php echo $isOpen ? 'badge-sealed' : 'badge-soon'; ?>"><?php echo $isOpen ? 'Accessible' : 'En attente'; ?></span>
+          <a href="capsule.php?id=<?php echo (int)$capsule['Id_Capsule']; ?>" class="text-decoration-none" style="display: block; height: 100%;">
+            <div class="capsule-card" style="height:auto; min-height: 280px; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)';" onmouseout="this.style.transform='translateY(0)';">
+              <div class="card-img-wrapper">
+                <img src="<?php echo h(!empty($capsule['photo']) ? '../' . ltrim((string)$capsule['photo'], '/') : '../images/default-capsule.jpg'); ?>" alt="<?php echo h((string)$capsule['titre']); ?>" style="width: 100%; height: 100%; object-fit: cover;">
               </div>
+              <div class="card-body-cv d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                  <p class="card-category mb-0"><?php echo $isOpen ? 'Ouverte' : 'Verrouillée'; ?></p>
+                  <span class="badge-cv <?php echo $isOpen ? 'badge-sealed' : 'badge-soon'; ?>"><?php echo $isOpen ? 'Accessible' : 'En attente'; ?></span>
+                </div>
 
-              <h3 class="card-title-cv"><?php echo h((string)$capsule['titre']); ?></h3>
-              <p class="card-desc"><?php echo h((string)($capsule['description'] ?: 'Aucune description')); ?></p>
+                <h3 class="card-title-cv"><?php echo h((string)$capsule['titre']); ?></h3>
+                <p class="card-desc"><?php echo h((string)($capsule['description'] ?: 'Aucune description')); ?></p>
 
-              <div class="mb-3">
-                <div class="open-label">Date d'ouverture</div>
-                <div class="open-value"><?php echo h($openDate); ?></div>
-              </div>
+                <div class="mb-3">
+                  <div class="open-label">Date d'ouverture</div>
+                  <div class="open-value"><?php echo h($openDate); ?></div>
+                </div>
 
-              <div class="d-flex justify-content-between align-items-center mt-auto gap-2">
-                <div class="card-desc mb-0" style="-webkit-line-clamp:1; line-clamp:1; margin-bottom:0;">
+                <div class="card-desc mb-0 mt-auto" style="-webkit-line-clamp:1; line-clamp:1; margin-bottom:0;">
                   <?php echo (int)$capsule['souvenir_count']; ?> souvenir(s) · <?php echo (int)$capsule['invitation_count']; ?> invitation(s)
                 </div>
-                <a class="btn-continue text-decoration-none" href="capsule.php?id=<?php echo (int)$capsule['Id_Capsule']; ?>">Ouvrir</a>
               </div>
-
-              <?php if ((int)$capsule['Id_Utilisateur'] === $userId): ?>
-              <form method="post" class="mt-2" onsubmit="return confirm('Supprimer cette capsule ?');">
-                <input type="hidden" name="action" value="delete_capsule" />
-                <input type="hidden" name="capsule_id" value="<?php echo (int)$capsule['Id_Capsule']; ?>" />
-                <button type="submit" class="btn-delete" aria-label="Supprimer la capsule">
-                  <span class="material-symbols-outlined" style="font-size:16px">delete</span>
-                </button>
-              </form>
-              <?php endif; ?>
             </div>
-          </div>
+          </a>
         </div>
       <?php endforeach; ?>
     </div>

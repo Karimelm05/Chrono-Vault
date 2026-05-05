@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($checkStmt->fetch()) {
             $error = 'Cet email existe déjà.';
         } else {
-            $insertStmt = $pdo->prepare('INSERT INTO utilisateur (nom, email, mot_de_passe, role) VALUES (:nom, :email, :mot_de_passe, :role)');
+            $insertStmt = $pdo->prepare('INSERT INTO utilisateur (nom, email, mot_de_passe, statut) VALUES (:nom, :email, :mot_de_passe, :role)');
             $insertStmt->execute([
                 ':nom' => $full_name,
                 ':email' => $email,

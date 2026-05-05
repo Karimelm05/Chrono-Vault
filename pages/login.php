@@ -11,19 +11,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = trim($_POST['password'] ?? '');
 
     if ($email !== '' && $password !== '') {
-        $stmt = $pdo->prepare('SELECT Id_Utilisateur, nom, email, mot_de_passe, role FROM utilisateur WHERE email = :email LIMIT 1');
+        $stmt = $pdo->prepare('SELECT Id_Utilisateur, nom, email, mot_de_passe, role, statut FROM utilisateur WHERE email = :email LIMIT 1');
         $stmt->execute([':email' => $email]);
 
         $user = $stmt->fetch();
 
         if ($user && cv_password_matches($password, (string)$user['mot_de_passe'])) {
-            session_regenerate_id(true);
-            cv_store_user_session($user);
-            header('Location: dashboard.php');
-            exit();
+            if (strtolower((string)($user['statut'] ?? 'actif')) !== 'actif') {
+                $error = 'Ce compte est désactivé.';
+            } else {
+                session_regenerate_id(true);
+                cv_store_user_session($user);
+                header('Location: dashboard.php');
+                exit();
+            }
+        } else {
+            $error = 'Email ou mot de passe invalide';
         }
-
-        $error = 'Email ou mot de passe invalide';
     } else {
         $error = 'Tous les champs sont obligatoires';
     }

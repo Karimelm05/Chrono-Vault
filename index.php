@@ -302,7 +302,7 @@
         <div
           class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-4">
           <p class="small text-muted mb-0">
-            © 2024 ChronoVault — Sanctuariser le temps.
+            © 2026 ChronoVault — Tous droits réservés.
           </p>
           <div class="d-flex gap-4">
             <a href="#">Mentions légales</a>

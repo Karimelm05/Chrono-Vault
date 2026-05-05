@@ -1,4 +1,7 @@
 <?php
+// Ce fichier contient la structure HTML globale de l'application (header, sidebar, footer) 
+// et les styles communs. Les pages spécifiques sont incluses à l'intérieur de ce layout.
+
 $pageTitle = $pageTitle ?? 'ChronoVault';
 $activePage = $activePage ?? '';
 
@@ -16,6 +19,19 @@ $sidebarUserEmail = trim((string)($_SESSION['user']['email'] ?? ''));
 $sidebarUserAvatarAlt = $sidebarUserName;
 if ($sidebarUserEmail !== '') {
   $sidebarUserAvatarAlt .= ' (' . $sidebarUserEmail . ')';
+}
+
+$sidebarIsAdmin = false;
+$sidebarUserStatut = strtolower(trim((string)($_SESSION['user']['statut'] ?? '')));
+$sidebarUserRole = strtolower(trim((string)($_SESSION['user']['role'] ?? '')));
+if ($sidebarUserRole === 'admin' && $sidebarUserStatut === 'actif') {
+  $sidebarIsAdmin = true;
+}
+
+// Pending invitations count for the current user (used in the sidebar nav)
+$pendingInvitations = 0;
+if (!empty($_SESSION['user']['id'])) {
+  $pendingInvitations = cv_invitation_count_pending_for_user((int)$_SESSION['user']['id']);
 }
 ?>
 <!DOCTYPE html>
@@ -80,6 +96,11 @@ if ($sidebarUserEmail !== '') {
       color: var(--color-primary);
       letter-spacing: -0.04em;
     }
+    .admin-table thead th,
+  .admin-table tbody td {
+    background: transparent;
+  }
+
     #sidebar .brand-sub {
       font-size: 0.65rem;
       font-weight: 600;
@@ -298,10 +319,6 @@ if ($sidebarUserEmail !== '') {
       height: 100%;
       object-fit: cover;
       display: block;
-      transition: transform 0.25s ease;
-    }
-    .capsule-card:hover .card-img-wrapper img {
-      transform: scale(1.05);
     }
     .card-badges {
       position: absolute;
@@ -555,6 +572,42 @@ if ($sidebarUserEmail !== '') {
     }
     textarea.form-input-cv { resize: vertical; min-height: 110px; }
 
+    .souvenir-item-card {
+    border: 1px solid var(--color-outline-variant);
+  }
+
+  .souvenir-message-box {
+    background: var(--color-surface-container-high);
+    border: 1px solid var(--color-outline-variant);
+    border-radius: 0.65rem;
+    padding: 0.95rem;
+    margin-bottom: 1rem;
+  }
+
+  .souvenir-message-text {
+    margin: 0;
+    white-space: pre-wrap;
+    line-height: 1.6;
+    color: var(--color-on-surface);
+    font-size: 0.9rem;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+  }
+
+  .souvenir-type-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: var(--color-surface-container-high);
+    color: var(--color-on-surface-variant);
+    border: 1px solid var(--color-outline-variant);
+  }
     .input-icon-wrap { position: relative; }
     .input-icon-wrap .material-symbols-outlined {
       position: absolute;
@@ -878,11 +931,20 @@ if ($sidebarUserEmail !== '') {
       <a href="invitations.php" class="nav-link-item <?php echo $activePage === 'invitations' ? 'active' : ''; ?>">
         <span class="material-symbols-outlined">notifications</span>
         <span>Notifications</span>
+        <?php if (!empty($pendingInvitations)): ?>
+          <span class="badge-cv badge-shared" style="margin-left:0.6rem; font-size:0.7rem; padding:0.2rem 0.55rem;"><?php echo (int)$pendingInvitations; ?></span>
+        <?php endif; ?>
       </a>
       <a href="parametre.php" class="nav-link-item <?php echo $activePage === 'parametre' ? 'active' : ''; ?>">
         <span class="material-symbols-outlined">settings</span>
         <span>Paramètres</span>
       </a>
+      <?php if ($sidebarIsAdmin): ?>
+      <a href="admin.php" class="nav-link-item <?php echo $activePage === 'admin' ? 'active' : ''; ?>">
+        <span class="material-symbols-outlined">admin_panel_settings</span>
+        <span>Administration</span>
+      </a>
+      <?php endif; ?>
     </nav>
 
     <div class="mt-auto">

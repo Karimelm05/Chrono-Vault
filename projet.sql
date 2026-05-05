@@ -6,13 +6,13 @@
 -- Généré le : ven. 01 mai 2026 à 01:19
 -- Version du serveur : 10.4.32-MariaDB
 -- Version de PHP : 8.0.30
-CREATE DATABASE IF NOT EXISTS chrono_vault;
-USE chrono_vault;
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";
 
+CREATE DATABASE IF NOT EXISTS chrono_vault;
+USE chrono_vault;
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -33,8 +33,9 @@ CREATE TABLE `capsule` (
   `Id_Capsule` int(11) NOT NULL,
   `titre` varchar(100) DEFAULT NULL,
   `description` text DEFAULT NULL,
-  `date_creation` datetime DEFAULT NULL,
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `date_ouverture` datetime DEFAULT NULL,
+  `photo` varchar(255) DEFAULT NULL,
   `Id_Utilisateur` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -78,15 +79,16 @@ CREATE TABLE `utilisateur` (
   `nom` varchar(50) NOT NULL,
   `email` varchar(100) NOT NULL,
   `mot_de_passe` varchar(255) NOT NULL,
-  `role` varchar(50) DEFAULT NULL
+  `role` varchar(50) DEFAULT NULL,
+  `statut` varchar(20) NOT NULL DEFAULT 'actif'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Déchargement des données de la table `utilisateur`
 --
 
-INSERT INTO `utilisateur` (`Id_Utilisateur`, `nom`, `email`, `mot_de_passe`, `role`) VALUES
-(1, 'ENSIASD', 'ENSIASD@edu.uiz.ac.ma', 'ENSIASD2026', 'admin');
+INSERT INTO `utilisateur` (`Id_Utilisateur`, `nom`, `email`, `mot_de_passe`, `role`, `statut`) VALUES
+(1, 'ENSIASD', 'ENSIASD@edu.uiz.ac.ma', 'ENSIASD2026', 'admin', 'actif');
 
 --
 -- Index pour les tables déchargées
