@@ -186,6 +186,32 @@ $flash = cv_flash_get();
         </div>
       </div>
     </div>
+     <div class="col-12 col-lg-8">
+  <div class="capsule-card" style="height:auto;">
+    <div class="card-body-cv">
+      <h3 class="card-title-cv">Apparence</h3>
+      <p class="card-desc">Personnalisez le thème de l’interface.</p>
+
+      <div class="mb-3">
+        <label class="form-label-cv" for="theme_select">Thème</label>
+      <select id="theme_select" class="form-input-cv">
+        <option value="indigo">Indigo (par défaut)</option>
+        <option value="brown">Brun</option>
+        <option value="emerald">Émeraude</option>
+        <option value="slate">Ardoise</option>
+        <option value="rose">Rose</option>
+        <option value="midnight">Minuit (sombre)</option>
+      </select>
+      </div>
+
+      <div class="d-flex justify-content-end">
+        <button type="button" onclick="applyTheme(document.getElementById('theme_select').value)" class="btn-primary-cv">
+          Appliquer
+        </button>
+      </div>
+    </div>
+  </div>
+</div> 
   </div>
 </section>
 

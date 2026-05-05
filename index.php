@@ -84,10 +84,10 @@
             </div>
           </div>
 
-          <div class="col-lg-6">
+              <div class="col-lg-6">
             <div class="hero-card">
               <img
-                src="https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=1200"
+                src="images/chrono-vault-index-1.png"
                 alt="ChronoVault" />
             </div>
           </div>
@@ -209,7 +209,7 @@
       </div>
     </section>
 
-    <section class="py-5">
+     <section class="py-5">
       <div class="container py-5">
         <div class="d-flex justify-content-between align-items-center mb-5">
           <div>
@@ -222,28 +222,29 @@
           <div class="col-sm-6 col-lg-3">
             <div class="gallery-card">
               <img
-                src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?q=80&w=1200"
+                src="images/chrono-vault-index-2.jpg"
                 alt="" />
             </div>
           </div>
           <div class="col-sm-6 col-lg-3">
             <div class="gallery-card">
               <img
-                src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1200"
+                src="images/chrono-vault-index-3.jpg"
                 alt="" />
             </div>
           </div>
           <div class="col-sm-6 col-lg-3">
             <div class="gallery-card">
               <img
-                src="https://images.unsplash.com/photo-1511988617509-a57c8a288659?q=80&w=1200"
+                src="images/chrono-vault-index-4.jpg"
+                
                 alt="" />
             </div>
           </div>
           <div class="col-sm-6 col-lg-3">
             <div class="gallery-card">
               <img
-                src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1200"
+                src="images/chrono-vault-index-5.jpg"
                 alt="" />
             </div>
           </div>
@@ -251,52 +252,7 @@
       </div>
     </section>
 
-    <section class="py-5 bg-light" id="contact">
-      <div class="container py-5">
-        <div class="contact-box">
-          <div class="text-center mb-5">
-            <h2 class="section-title">Contactez-nous</h2>
-            <p class="text-muted mt-3">Une question ? Notre équipe est là.</p>
-          </div>
-
-          <form>
-            <div class="row g-4">
-              <div class="col-md-6">
-                <input
-                  type="text"
-                  class="form-control"
-                  placeholder="Nom complet" />
-              </div>
-              <div class="col-md-6">
-                <input
-                  type="email"
-                  class="form-control"
-                  placeholder="Adresse email" />
-              </div>
-              <div class="col-12">
-                <select class="form-select">
-                  <option>Information générale</option>
-                  <option>Support technique</option>
-                  <option>Partenariat</option>
-                </select>
-              </div>
-              <div class="col-12">
-                <textarea
-                  class="form-control"
-                  rows="6"
-                  placeholder="Votre message"></textarea>
-              </div>
-              <div class="col-12">
-                <button class="btn btn-chrono w-100 py-3">
-                  Envoyer le message
-                </button>
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
-    </section>
-
+    
     <footer class="py-5">
       <div class="container">
         <div

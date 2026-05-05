@@ -50,6 +50,7 @@ if (!empty($_SESSION['user']['id'])) {
 
   <!-- Theme variables -->
   <link href="../css/variables.css" rel="stylesheet"/>
+<script src="../js/themes.js"></script>
 
   <style>
     :root {
