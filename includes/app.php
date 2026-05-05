@@ -137,3 +137,28 @@ function cv_store_upload_file(array $file, string $directory, string $prefix = '
 
     return trim($directory, '/') . '/' . $filename;
 }
+
+
+function cv_try_remember_login(PDO $pdo): bool {
+    if (!isset($_COOKIE['remember_token'])) return false;
+
+    $token = $_COOKIE['remember_token'];
+    $stmt  = $pdo->prepare('
+        SELECT u.Id_Utilisateur, u.nom, u.email, u.mot_de_passe, u.role, u.statut
+        FROM remember_tokens rt
+        JOIN utilisateur u ON u.Id_Utilisateur = rt.Id_Utilisateur
+        WHERE rt.token = :token AND rt.expires_at > NOW()
+        LIMIT 1
+    ');
+    $stmt->execute([':token' => hash('sha256', $token)]);
+    $user = $stmt->fetch();
+
+    if ($user && strtolower((string)($user['statut'] ?? 'actif')) === 'actif') {
+        session_regenerate_id(true);
+        cv_store_user_session($user);
+        return true;
+    }
+
+    setcookie('remember_token', '', ['expires' => time() - 3600, 'path' => '/']);
+    return false;
+}

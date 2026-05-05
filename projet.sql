@@ -83,6 +83,24 @@ CREATE TABLE `utilisateur` (
   `statut` varchar(20) NOT NULL DEFAULT 'actif'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+--
+-- Structure de la table `remember_tokens`
+--
+
+CREATE TABLE `remember_tokens` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `Id_Utilisateur` INT NOT NULL,
+  `token` CHAR(64) NOT NULL,
+  `expires_at` DATETIME NOT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_token` (`token`),
+  CONSTRAINT `fk_remember_user`
+    FOREIGN KEY (`Id_Utilisateur`)
+    REFERENCES `utilisateur` (`Id_Utilisateur`)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 --
 -- Déchargement des données de la table `utilisateur`
 --
