@@ -2,8 +2,17 @@
 require_once __DIR__ . '/../includes/app.php';
 cv_require_login();
 
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
+function _cv_send_json($data) {
+  header('Content-Type: application/json');
+  echo json_encode($data);
+  exit();
+}
+
 $user = cv_current_user();
 $userId = (int)($user['id'] ?? 0);
+$userEmail = strtolower(trim((string)($user['email'] ?? '')));
 $errors = [];
 
 $capsuleId = (int)($_GET['id'] ?? 0);
@@ -37,6 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               cv_souvenir_create($capsuleId, $userId, $type, $donnee);
 
               cv_flash_set('success', $type === 'photo' ? 'Photo ajoutée à la capsule.' : 'Message ajouté à la capsule.');
+              if ($isAjax) {
+                _cv_send_json(['success' => true, 'redirect' => 'capsule.php?id=' . $capsuleId]);
+              }
               header('Location: capsule.php?id=' . $capsuleId);
               exit();
             } catch (Throwable $e) {
@@ -48,6 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'invite_member') {
         $inviteEmail = trim($_POST['invite_email'] ?? '');
+      $inviteEmailLower = strtolower($inviteEmail);
 
         if ($inviteEmail === '') {
             $errors[] = 'L’adresse email est obligatoire.';
@@ -55,6 +68,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Only capsule owner can invite members
             if (!cv_capsule_user_is_owner($capsuleId, $userId)) {
                 $errors[] = 'Seul le créateur de la capsule peut inviter des membres.';
+        } elseif ($inviteEmailLower === $userEmail) {
+          $errors[] = 'Vous ne pouvez pas vous inviter vous-même.';
             } else {
               $invitee = cv_user_find_by_email($inviteEmail);
 
@@ -66,9 +81,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     } else {
                   cv_invitation_create($capsuleId, (int)$invitee['Id_Utilisateur']);
 
-                        cv_flash_set('success', 'Invitation envoyée à ' . $inviteEmail . '.');
-                        header('Location: capsule.php?id=' . $capsuleId);
-                        exit();
+                  cv_flash_set('success', 'Invitation envoyée à ' . $inviteEmail . '.');
+                  if ($isAjax) {
+                    _cv_send_json(['success' => true, 'redirect' => 'capsule.php?id=' . $capsuleId]);
+                  }
+                  header('Location: capsule.php?id=' . $capsuleId);
+                  exit();
                     }
                 }
             }
@@ -84,6 +102,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
               $pdo->commit();
                 cv_flash_set('success', 'Capsule supprimée.');
+                if ($isAjax) {
+                  _cv_send_json(['success' => true, 'redirect' => 'capsules.php']);
+                }
                 header('Location: capsules.php');
                 exit();
             } catch (Throwable $e) {
@@ -94,6 +115,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+}
+
+if ($isAjax && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($errors)) {
+    _cv_send_json(['success' => false, 'errors' => $errors]);
 }
 
 if ($capsuleId <= 0) {
@@ -174,7 +199,7 @@ $flash = cv_flash_get();
     <div class="d-flex gap-2">
       <a class="btn-filter text-decoration-none" href="capsules.php">Retour aux capsules</a>
       <?php if ($isOwner): ?>
-      <form method="post" style="display: inline;" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer cette capsule ? Cette action ne peut pas être annulée.');">
+      <form method="post" class="ajax-form" style="display: inline;" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer cette capsule ? Cette action ne peut pas être annulée.');">
         <input type="hidden" name="action" value="delete_capsule" />
         <input type="hidden" name="capsule_id" value="<?php echo (int)$capsuleId; ?>" />
         <button type="submit" class="btn-delete" aria-label="Supprimer la capsule" style="background: #dc3545; color: white; border: none; padding: 1.4rem 1.4rem; border-radius: 0.5rem; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.9rem;">
@@ -273,7 +298,7 @@ $flash = cv_flash_get();
         <div class="card-body-cv">
           <h3 class="card-title-cv">Ajouter du contenu</h3>
 
-          <form method="post" enctype="multipart/form-data">
+          <form method="post" enctype="multipart/form-data" class="ajax-form">
             <input type="hidden" name="action" value="add_souvenir" />
             <input type="hidden" name="capsule_id" value="<?php echo (int)$capsuleId; ?>" />
 
@@ -308,13 +333,14 @@ $flash = cv_flash_get();
           <p class="card-desc">Invitez un utilisateur déjà inscrit à rejoindre cette capsule.</p>
 
           <?php if ($isOwner): ?>
-          <form method="post">
+          <form method="post" class="ajax-form">
             <input type="hidden" name="action" value="invite_member" />
             <input type="hidden" name="capsule_id" value="<?php echo (int)$capsuleId; ?>" />
 
             <div class="mb-3">
               <label class="form-label-cv" for="invite_email">Adresse email</label>
               <input id="invite_email" name="invite_email" type="email" class="form-input-cv" placeholder="ami@email.com" />
+              <div class="form-text mt-2">Vous ne pouvez pas vous inviter vous-même.</div>
             </div>
 
             <div class="d-flex justify-content-end">

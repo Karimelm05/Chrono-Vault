@@ -2,6 +2,14 @@
 require_once __DIR__ . '/../includes/app.php';
 cv_require_login();
 
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
+function _cv_send_json($data) {
+  header('Content-Type: application/json');
+  echo json_encode($data);
+  exit();
+}
+
 $activePage = 'parametre';
 $user = cv_current_user();
 $userId = (int)($user['id'] ?? 0);
@@ -44,6 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['user']['name'] = $fullName;
                 $_SESSION['user']['email'] = $email;
                 cv_flash_set('success', 'Profil mis à jour.');
+                if ($isAjax) _cv_send_json(['success' => true, 'message' => 'Profil mis à jour.', 'redirect' => 'parametre.php']);
                 header('Location: parametre.php');
                 exit();
             }
@@ -64,11 +73,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $stmt = $pdo->prepare('UPDATE utilisateur SET mot_de_passe = :mot_de_passe WHERE Id_Utilisateur = :user_id');
             $stmt->execute([
-                ':mot_de_passe' => password_hash($newPassword, PASSWORD_DEFAULT),
-                ':user_id' => $userId,
+              ':mot_de_passe' => password_hash($newPassword, PASSWORD_DEFAULT),
+              ':user_id' => $userId,
             ]);
 
             cv_flash_set('success', 'Mot de passe mis à jour.');
+            if ($isAjax) _cv_send_json(['success' => true, 'message' => 'Mot de passe mis à jour.', 'redirect' => 'parametre.php']);
             header('Location: parametre.php');
             exit();
         }
@@ -83,10 +93,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         session_destroy();
         cv_flash_set('success', 'Votre compte a été désactivé.');
+        if ($isAjax) _cv_send_json(['success' => true, 'message' => 'Compte désactivé.', 'redirect' => '../index.php']);
         header('Location: ../index.php');
         exit();
     }
 }
+
+    if ($isAjax && $_SERVER['REQUEST_METHOD'] === 'POST' && $errors) {
+      _cv_send_json(['success' => false, 'errors' => $errors]);
+    }
 
 require_once __DIR__ . '/../includes/layout.php';
 $flash = cv_flash_get();
@@ -118,7 +133,7 @@ $flash = cv_flash_get();
       <div class="capsule-card" style="height:auto;">
         <div class="card-body-cv">
           <h3 class="card-title-cv">Profil</h3>
-          <form method="post">
+          <form method="post" class="ajax-form">
             <input type="hidden" name="action" value="update_profile" />
 
             <div class="mb-3">
@@ -145,7 +160,7 @@ $flash = cv_flash_get();
           <h3 class="card-title-cv">Sécurité</h3>
           <p class="card-desc">Changez votre mot de passe en confirmant votre mot de passe actuel.</p>
 
-          <form method="post">
+          <form method="post" class="ajax-form">
             <input type="hidden" name="action" value="change_password" />
 
             <div class="mb-3">
@@ -177,7 +192,7 @@ $flash = cv_flash_get();
           <h3 class="card-title-cv text-danger">Zone de danger</h3>
           <p class="card-desc">Désactiver votre compte le rendra inactif. Vous ne pourrez plus vous connecter ni accéder à vos données.</p>
           
-          <form method="post" onsubmit="return confirm('Êtes-vous sûr ? Cette action rendra votre compte inactif et vous déconnectera.');">
+          <form method="post" class="ajax-form" onsubmit="return confirm('Êtes-vous sûr ? Cette action rendra votre compte inactif et vous déconnectera.');">
             <input type="hidden" name="action" value="delete_account" />
             <button type="submit" class="btn btn-danger" style="background-color: #dc3545; border: none; padding: 0.7rem 1.4rem; border-radius: 0.5rem; font-weight: 700; font-family: 'Plus Jakarta Sans', sans-serif; cursor: pointer; color: white;">
               Désactiver le compte

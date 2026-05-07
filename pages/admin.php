@@ -3,22 +3,44 @@ require_once __DIR__ . '/../includes/app.php';
 cv_require_admin();
 $activePage = 'admin';
 
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
+function _cv_send_json($data) {
+  header('Content-Type: application/json');
+  echo json_encode($data);
+  exit();
+}
+
 $currentUser = cv_current_user();
 $currentUserId = (int)($currentUser['id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
+    $sendError = static function (string $message) use ($isAjax): void {
+        cv_flash_set('danger', $message);
+        if ($isAjax) {
+            _cv_send_json(['success' => false, 'errors' => [$message]]);
+        }
+    };
+
+    $sendSuccess = static function (string $message) use ($isAjax): void {
+        cv_flash_set('success', $message);
+        if ($isAjax) {
+            _cv_send_json(['success' => true, 'message' => $message, 'redirect' => 'admin.php']);
+        }
+    };
+
     if ($action === 'update_user_role') {
       $targetUserId = (int)($_POST['user_id'] ?? 0);
       $newRole = strtolower(trim((string)($_POST['role'] ?? 'user')));
 
       if ($targetUserId <= 0) {
-        cv_flash_set('danger', 'Utilisateur invalide.');
+        $sendError('Utilisateur invalide.');
       } elseif ($targetUserId === $currentUserId) {
-        cv_flash_set('danger', 'Vous ne pouvez pas modifier votre propre rôle depuis cette page.');
+        $sendError('Vous ne pouvez pas modifier votre propre rôle depuis cette page.');
       } elseif (!in_array($newRole, ['user', 'admin'], true)) {
-        cv_flash_set('danger', 'Rôle invalide.');
+        $sendError('Rôle invalide.');
       } else {
         $stmt = $pdo->prepare('UPDATE utilisateur SET role = :role WHERE Id_Utilisateur = :user_id');
         $stmt->execute([
@@ -26,11 +48,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           ':user_id' => $targetUserId,
         ]);
 
-        cv_flash_set('success', 'Rôle utilisateur mis à jour.');
+        $sendSuccess('Rôle utilisateur mis à jour.');
       }
 
-      header('Location: admin.php');
-      exit();
+      if (!$isAjax) {
+        header('Location: admin.php');
+        exit();
+      }
     }
 
     if ($action === 'toggle_user_status') {
@@ -38,11 +62,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $newStatus = strtolower(trim((string)($_POST['status'] ?? 'actif')));
 
       if ($targetUserId <= 0) {
-        cv_flash_set('danger', 'Utilisateur invalide.');
+        $sendError('Utilisateur invalide.');
       } elseif ($targetUserId === $currentUserId) {
-        cv_flash_set('danger', 'Vous ne pouvez pas désactiver votre propre compte depuis cette page.');
+        $sendError('Vous ne pouvez pas désactiver votre propre compte depuis cette page.');
       } elseif (!in_array($newStatus, ['actif', 'inactif'], true)) {
-        cv_flash_set('danger', 'Statut invalide.');
+        $sendError('Statut invalide.');
       } else {
         $stmt = $pdo->prepare('UPDATE utilisateur SET statut = :statut WHERE Id_Utilisateur = :user_id');
         $stmt->execute([
@@ -50,20 +74,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           ':user_id' => $targetUserId,
         ]);
 
-        cv_flash_set('success', $newStatus === 'actif' ? 'Utilisateur activé.' : 'Utilisateur désactivé.');
+        $sendSuccess($newStatus === 'actif' ? 'Utilisateur activé.' : 'Utilisateur désactivé.');
       }
 
-      header('Location: admin.php');
-      exit();
+      if (!$isAjax) {
+        header('Location: admin.php');
+        exit();
+      }
     }
 
     if ($action === 'delete_user') {
         $targetUserId = (int)($_POST['user_id'] ?? 0);
 
         if ($targetUserId <= 0) {
-            cv_flash_set('danger', 'Utilisateur invalide.');
+          $sendError('Utilisateur invalide.');
         } elseif ($targetUserId === $currentUserId) {
-            cv_flash_set('danger', 'Vous ne pouvez pas supprimer votre propre compte depuis cette page.');
+          $sendError('Vous ne pouvez pas supprimer votre propre compte depuis cette page.');
         } else {
             $pdo->beginTransaction();
 
@@ -95,22 +121,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([':user_id' => $targetUserId]);
 
                 $pdo->commit();
-                cv_flash_set('success', 'Utilisateur supprimé.');
+        $sendSuccess('Utilisateur supprimé.');
             } catch (Throwable $e) {
                 $pdo->rollBack();
-                cv_flash_set('danger', 'Impossible de supprimer cet utilisateur.');
+        $sendError('Impossible de supprimer cet utilisateur.');
             }
         }
 
-        header('Location: admin.php');
-        exit();
+        if (!$isAjax) {
+          header('Location: admin.php');
+          exit();
+        }
     }
 
     if ($action === 'toggle_capsule_status') {
         $capsuleId = (int)($_POST['capsule_id'] ?? 0);
 
         if ($capsuleId <= 0) {
-            cv_flash_set('danger', 'Capsule invalide.');
+            $sendError('Capsule invalide.');
         } else {
         // Use `date_ouverture` to determine open/closed state (no statut_ouverture column)
         $stmt = $pdo->prepare('SELECT date_ouverture FROM capsule WHERE Id_Capsule = :capsule_id LIMIT 1');
@@ -118,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $currentDate = $stmt->fetchColumn();
 
         if ($currentDate === false) {
-          cv_flash_set('danger', 'Capsule introuvable.');
+          $sendError('Capsule introuvable.');
         } else {
           $hasDate = !empty($currentDate);
           $isCurrentlyOpen = $hasDate && strtotime((string)$currentDate) <= time();
@@ -137,19 +165,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':capsule_id' => $capsuleId,
           ]);
 
-          cv_flash_set('success', $isCurrentlyOpen ? 'Capsule verrouillée.' : 'Capsule ouverte.');
+          $sendSuccess($isCurrentlyOpen ? 'Capsule verrouillée.' : 'Capsule ouverte.');
         }
         }
 
-        header('Location: admin.php');
-        exit();
+        if (!$isAjax) {
+          header('Location: admin.php');
+          exit();
+        }
     }
 
     if ($action === 'delete_capsule') {
         $capsuleId = (int)($_POST['capsule_id'] ?? 0);
 
         if ($capsuleId <= 0) {
-            cv_flash_set('danger', 'Capsule invalide.');
+          $sendError('Capsule invalide.');
         } else {
             $pdo->beginTransaction();
 
@@ -164,16 +194,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([':capsule_id' => $capsuleId]);
 
                 $pdo->commit();
-                cv_flash_set('success', 'Capsule supprimée.');
+        $sendSuccess('Capsule supprimée.');
             } catch (Throwable $e) {
                 $pdo->rollBack();
-                cv_flash_set('danger', 'Impossible de supprimer cette capsule.');
+        $sendError('Impossible de supprimer cette capsule.');
             }
         }
 
-        header('Location: admin.php');
-        exit();
+        if (!$isAjax) {
+          header('Location: admin.php');
+          exit();
+        }
     }
+}
+
+if ($isAjax && $_SERVER['REQUEST_METHOD'] === 'POST') {
+  _cv_send_json(['success' => false, 'errors' => ['Requête invalide.']]);
 }
 
 $usersStmt = $pdo->query(
@@ -260,7 +296,7 @@ $flash = cv_flash_get();
                     <td><?php echo (int)$adminUser['received_invitations']; ?> dont <?php echo (int)$adminUser['pending_invitations']; ?> en attente</td>
                     <td class="text-end">
                       <div class="d-flex flex-column align-items-end gap-2">
-                      <form method="post" class="d-flex justify-content-end" style="width: 170px;">
+                      <form method="post" class="d-flex justify-content-end ajax-form" style="width: 170px;">
                         <input type="hidden" name="user_id" value="<?php echo (int)$adminUser['Id_Utilisateur']; ?>" />
                         <input type="hidden" name="action" value="update_user_role" />
                         <input type="hidden" name="role" value="<?php echo ((string)($adminUser['role'] ?? 'user') === 'admin') ? 'user' : 'admin'; ?>" />
@@ -268,7 +304,7 @@ $flash = cv_flash_get();
                           <?php echo ((string)($adminUser['role'] ?? 'user') === 'admin') ? 'Retirer admin' : 'Promouvoir admin'; ?>
                         </button>
                       </form>
-                      <form method="post" class="d-flex justify-content-end" style="width: 170px;">
+                      <form method="post" class="d-flex justify-content-end ajax-form" style="width: 170px;">
                         <input type="hidden" name="user_id" value="<?php echo (int)$adminUser['Id_Utilisateur']; ?>" />
                         <input type="hidden" name="action" value="toggle_user_status" />
                         <input type="hidden" name="status" value="<?php echo ((string)$adminUser['statut'] === 'actif') ? 'inactif' : 'actif'; ?>" />
@@ -276,7 +312,7 @@ $flash = cv_flash_get();
                           <?php echo ((string)$adminUser['statut'] === 'actif') ? 'Désactiver' : 'Activer'; ?>
                         </button>
                       </form>
-                      <form method="post" class="d-flex justify-content-end" style="width: 170px;" onsubmit="return confirm('Supprimer cet utilisateur et ses données ?');">
+                      <form method="post" class="d-flex justify-content-end ajax-form" style="width: 170px;" onsubmit="return confirm('Supprimer cet utilisateur et ses données ?');">
                         <input type="hidden" name="user_id" value="<?php echo (int)$adminUser['Id_Utilisateur']; ?>" />
                         <input type="hidden" name="action" value="delete_user" />
                         <button type="submit" class="btn-delete w-100">Supprimer</button>
@@ -333,12 +369,12 @@ $flash = cv_flash_get();
                     <td><?php echo (int)$capsule['souvenir_count']; ?></td>
                     <td class="text-end">
                       <div class="d-flex flex-column align-items-end gap-2">
-                      <form method="post" class="d-flex justify-content-end" style="width: 170px;">
+                      <form method="post" class="d-flex justify-content-end ajax-form" style="width: 170px;">
                         <input type="hidden" name="capsule_id" value="<?php echo (int)$capsule['Id_Capsule']; ?>" />
                         <input type="hidden" name="action" value="toggle_capsule_status" />
                         <button type="submit" class="btn-filter w-100 justify-content-center"><?php echo $isOpen ? 'Verrouiller' : 'Ouvrir'; ?></button>
                       </form>
-                      <form method="post" class="d-flex justify-content-end" style="width: 170px;" onsubmit="return confirm('Supprimer cette capsule ?');">
+                      <form method="post" class="d-flex justify-content-end ajax-form" style="width: 170px;" onsubmit="return confirm('Supprimer cette capsule ?');">
                         <input type="hidden" name="capsule_id" value="<?php echo (int)$capsule['Id_Capsule']; ?>" />
                         <input type="hidden" name="action" value="delete_capsule" />
                         <button type="submit" class="btn-delete w-100">Supprimer</button>

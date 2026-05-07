@@ -3,6 +3,14 @@ require_once __DIR__ . '/../includes/app.php';
 
 cv_redirect_if_logged_in('dashboard.php');
 
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
+function _cv_send_json($data) {
+  header('Content-Type: application/json');
+  echo json_encode($data);
+  exit();
+}
+
 if (!isset($_SESSION['user']) && isset($_COOKIE['remember_token'])) {
     $token = $_COOKIE['remember_token'];
 
@@ -88,14 +96,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ]);
                 }
 
+                if ($isAjax) {
+                  _cv_send_json(['success' => true, 'redirect' => 'dashboard.php']);
+                }
                 header('Location: dashboard.php');
                 exit();
             }
         } else {
-            $error = 'Email ou mot de passe invalide';
+              $error = 'Email ou mot de passe invalide';
+              if ($isAjax) _cv_send_json(['success' => false, 'errors' => [$error]]);
         }
     } else {
-        $error = 'Tous les champs sont obligatoires';
+            $error = 'Tous les champs sont obligatoires';
+            if ($isAjax) _cv_send_json(['success' => false, 'errors' => [$error]]);
     }
 }
 ?>
@@ -134,7 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <p class="text-success mt-3 text-center small"><?= h((string)$flash['message']) ?></p>
         <?php endif; ?>
 
-        <form method="POST">
+        <form method="POST" id="login-form" class="ajax-form">
 
           <div class="mb-4 text-start">
             <label class="form-label small text-muted">E-mail</label>
@@ -189,5 +202,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../js/ajax.js"></script>
   </body>
 </html>

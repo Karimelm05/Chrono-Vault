@@ -3,6 +3,14 @@ require_once __DIR__ . '/../includes/app.php';
 
 cv_redirect_if_logged_in();
 
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
+function _cv_send_json($data) {
+  header('Content-Type: application/json');
+  echo json_encode($data);
+  exit();
+}
+
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -26,11 +34,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             cv_flash_set('success', 'Compte créé avec succès. Vous pouvez vous connecter.');
+            if ($isAjax) {
+              _cv_send_json(['success' => true, 'message' => 'Compte créé.', 'redirect' => 'login.php']);
+            }
             header('Location: login.php');
             exit();
         }
     } else {
-        $error = 'Tous les champs sont obligatoires.';
+      $error = 'Tous les champs sont obligatoires.';
+    }
+    if ($isAjax && $_SERVER['REQUEST_METHOD'] === 'POST' && $error !== '') {
+      _cv_send_json(['success' => false, 'errors' => [$error]]);
     }
 }
 ?>
@@ -78,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <h2 class="auth-brand-title">ChronoVault</h2>
         <p class="auth-subtitle mb-4">Créer votre compte</p>
 
-        <form method="POST" id="signup-form">
+        <form method="POST" id="signup-form" class="ajax-form">
           <div class="mb-3 text-start">
             <label class="form-label small text-muted">Nom</label>
        <input type="text" name="name" class="form-control" placeholder="Votre nom complet" required />
@@ -138,6 +152,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../js/main.js"></script>
+    <script src="../js/ajax.js"></script>
     <script>
       (function () {
         const pw = document.getElementById('signup-password');

@@ -12,9 +12,28 @@ function cv_current_user(): ?array
     return $_SESSION['user'] ?? null;
 }
 
+function cv_is_ajax_request(): bool
+{
+    return !empty($_SERVER['HTTP_X_REQUESTED_WITH'])
+        && strtolower((string)$_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+}
+
+function cv_ajax_redirect(string $target): void
+{
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => true,
+        'redirect' => $target,
+    ]);
+    exit();
+}
+
 function cv_require_login(): void
 {
     if (!cv_current_user()) {
+        if (cv_is_ajax_request()) {
+            cv_ajax_redirect('login.php');
+        }
         header('Location: login.php');
         exit();
     }
@@ -23,6 +42,9 @@ function cv_require_login(): void
 function cv_redirect_if_logged_in(string $target = 'dashboard.php'): void
 {
     if (cv_current_user()) {
+        if (cv_is_ajax_request()) {
+            cv_ajax_redirect($target);
+        }
         header('Location: ' . $target);
         exit();
     }
@@ -55,6 +77,9 @@ function cv_store_user_session(array $user): void
 function cv_require_admin(): void
 {
     if (!cv_current_user()) {
+        if (cv_is_ajax_request()) {
+            cv_ajax_redirect('login.php');
+        }
         header('Location: login.php');
         exit();
     }
@@ -66,6 +91,9 @@ function cv_require_admin(): void
 
     if (! $isAdmin) {
         cv_flash_set('danger', 'Accès refusé : privilèges administrateur requis.');
+        if (cv_is_ajax_request()) {
+            cv_ajax_redirect('dashboard.php');
+        }
         header('Location: dashboard.php');
         exit();
     }

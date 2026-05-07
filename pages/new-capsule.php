@@ -2,10 +2,19 @@
 require_once __DIR__ . '/../includes/app.php';
 cv_require_login();
 
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
+function _cv_send_json($data) {
+  header('Content-Type: application/json');
+  echo json_encode($data);
+  exit();
+}
+
 $activePage = 'new-capsule';
 
 $user = cv_current_user();
 $userId = (int)($user['id'] ?? 0);
+$userEmail = strtolower(trim((string)($user['email'] ?? '')));
 $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -57,6 +66,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     continue;
                 }
 
+              if ($email === $userEmail) {
+                $invalidEmails[] = $email;
+                continue;
+              }
+
                 $invitee = cv_user_find_by_email($email);
 
                 if (!$invitee || (string)($invitee['statut'] ?? 'actif') !== 'actif') {
@@ -83,6 +97,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 cv_flash_set('success', 'Capsule créée avec succès.');
             }
 
+            if ($isAjax) {
+              _cv_send_json(['success' => true, 'redirect' => 'capsule.php?id=' . $capsuleId]);
+            }
             header('Location: capsule.php?id=' . $capsuleId);
             exit();
         } catch (Throwable $e) {
@@ -97,10 +114,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            $errors[] = 'Impossible de créer la capsule.';
+              $errors[] = 'Impossible de créer la capsule.';
         }
     }
 }
+
+        if ($isAjax && $_SERVER['REQUEST_METHOD'] === 'POST' && $errors) {
+          _cv_send_json(['success' => false, 'errors' => $errors]);
+        }
 
 require_once __DIR__ . '/../includes/layout.php';
 $flash = cv_flash_get();
@@ -131,7 +152,7 @@ $flash = cv_flash_get();
     <div class="col-12 col-lg-8">
       <div class="capsule-card" style="height:auto;">
         <div class="card-body-cv">
-          <form method="post" enctype="multipart/form-data">
+          <form method="post" enctype="multipart/form-data" class="ajax-form">
             <div class="mb-3">
               <label class="form-label-cv" for="title">Titre de la capsule</label>
               <input id="title" name="title" type="text" class="form-input-cv" placeholder="Ex: Vacances d'été 2026" />

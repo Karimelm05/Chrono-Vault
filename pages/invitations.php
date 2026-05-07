@@ -4,6 +4,14 @@ cv_require_login();
 
 $activePage = 'invitations';
 
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
+function _cv_send_json($data) {
+  header('Content-Type: application/json');
+  echo json_encode($data);
+  exit();
+}
+
 $user = cv_current_user();
 $userId = (int)($user['id'] ?? 0);
 
@@ -16,11 +24,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       cv_invitation_update_status_for_user($invitationId, $userId, $status);
 
         cv_flash_set('success', $status === 'accepted' ? 'Invitation acceptée.' : 'Invitation refusée.');
+      if ($isAjax) {
+        _cv_send_json(['success' => true, 'message' => $status === 'accepted' ? 'Invitation acceptée.' : 'Invitation refusée.', 'redirect' => 'invitations.php']);
+      }
     }
 
-    header('Location: invitations.php');
-    exit();
+    if (!$isAjax) {
+      header('Location: invitations.php');
+      exit();
+    }
 }
+
+  if ($isAjax && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    _cv_send_json(['success' => false, 'errors' => ['Requête invalide.']]);
+  }
 
 $invitations = cv_invitation_recent_pending_for_user($userId, 100);
 
@@ -69,12 +86,12 @@ $flash = cv_flash_get();
 
               <div class="d-flex flex-wrap justify-content-end gap-2 align-items-center">
                 <span class="badge-cv <?php echo $badgeClass; ?>"><?php echo h(ucfirst($status)); ?></span>
-                <form method="post" class="d-inline">
+                <form method="post" class="d-inline ajax-form">
                   <input type="hidden" name="action" value="accept" />
                   <input type="hidden" name="invitation_id" value="<?php echo (int)$invitation['Id_Invitation']; ?>" />
                   <button class="btn-primary-cv" type="submit">Accepter</button>
                 </form>
-                <form method="post" class="d-inline">
+                <form method="post" class="d-inline ajax-form">
                   <input type="hidden" name="action" value="decline" />
                   <input type="hidden" name="invitation_id" value="<?php echo (int)$invitation['Id_Invitation']; ?>" />
                   <button class="btn-filter" type="submit">Refuser</button>

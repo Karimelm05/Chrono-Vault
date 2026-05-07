@@ -18,6 +18,7 @@ if (cv_try_remember_login($pdo)) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="css/style.css" />
   </head>
 
@@ -47,6 +48,11 @@ if (cv_try_remember_login($pdo)) {
     </nav>
 
     <section class="hero">
+      <div class="floating-shapes" aria-hidden="true">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+      </div>
       <div class="container">
         <div class="row align-items-center g-5">
           <div class="col-lg-6">
@@ -62,8 +68,30 @@ if (cv_try_remember_login($pdo)) {
             </div>
           </div>
           <div class="col-lg-6">
-            <div class="hero-card">
-              <img src="images/chrono-vault-index-1.png" alt="ChronoVault" />
+            <div class="hero-illustration">
+              <div class="capsule-3d">
+                <div class="capsule-body">
+                  <div class="capsule-icon">
+                    <i class="bi bi-hourglass-split"></i>
+                  </div>
+                  <div class="capsule-glow"></div>
+                  <div class="capsule-ring ring-1"></div>
+                  <div class="capsule-ring ring-2"></div>
+                  <div class="capsule-ring ring-3"></div>
+                </div>
+                <div class="floating-item item-1">
+                  <i class="bi bi-image"></i>
+                </div>
+                <div class="floating-item item-2">
+                  <i class="bi bi-chat-heart"></i>
+                </div>
+                <div class="floating-item item-3">
+                  <i class="bi bi-lock-fill"></i>
+                </div>
+                <div class="floating-item item-4">
+                  <i class="bi bi-people-fill"></i>
+                </div>
+              </div>
             </div>
           </div>
         </div>
